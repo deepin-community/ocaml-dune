@@ -1,0 +1,39 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+#export DH_OPTIONS=-v
+
+include /usr/share/ocaml/ocamlvars.mk
+
+export DESTDIR=$(CURDIR)/debian/tmp
+export PREFIX=/usr
+export LIBDIR=..$(OCAML_STDLIB_DIR)
+
+%:
+	dh $@ --with ocaml
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf _tmp
+
+override_dh_auto_configure:
+	./configure --libdir /usr/lib/ocaml
+
+override_dh_auto_build:
+	ocaml bootstrap.ml
+	./dune.exe build -p dune --profile dune-bootstrap
+	./dune.exe install --destdir=$(CURDIR)/_tmp --prefix=/usr --libdir=..$(OCAML_STDLIB_DIR) dune
+	PATH=$(CURDIR)/_tmp/usr/bin:$(PATH) OCAMLPATH=$(CURDIR)/_tmp$(OCAML_STDLIB_DIR) dune build -p dune-private-libs
+	PATH=$(CURDIR)/_tmp/usr/bin:$(PATH) OCAMLPATH=$(CURDIR)/_tmp$(OCAML_STDLIB_DIR) dune install --destdir=$(CURDIR)/_tmp --prefix=/usr --libdir=..$(OCAML_STDLIB_DIR) dune-private-libs
+	PATH=$(CURDIR)/_tmp/usr/bin:$(PATH) OCAMLPATH=$(CURDIR)/_tmp$(OCAML_STDLIB_DIR) dune build -p dune-configurator
+	PATH=$(CURDIR)/_tmp/usr/bin:$(PATH) OCAMLPATH=$(CURDIR)/_tmp$(OCAML_STDLIB_DIR) dune install --destdir=$(CURDIR)/_tmp --prefix=/usr --libdir=..$(OCAML_STDLIB_DIR) dune-configurator
+
+override_dh_auto_install:
+	rm -rf debian/tmp
+	cp -a _tmp debian/tmp
+	rm -rf debian/tmp/usr/doc/dune-private-libs debian/tmp/usr/doc/dune-configurator debian/tmp/usr/doc/dune/LICENSE.md
+
+override_dh_auto_test:
+# Upstream tests assume opam is installed; skip them

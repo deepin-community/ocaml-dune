@@ -1,0 +1,4 @@
+@OCamlStdlibDir@/dune
+@OCamlStdlibDir@/dune-private-libs
+@OCamlStdlibDir@/dune-configurator
+@OCamlDllDir@
