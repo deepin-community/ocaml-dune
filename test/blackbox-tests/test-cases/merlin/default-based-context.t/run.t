@@ -1,5 +1,5 @@
   $ export BUILD_PATH_PREFIX_MAP=\
-  > "OPAM_PREFIX=$(opam config var prefix):$BUILD_PATH_PREFIX_MAP"
+  > "OPAM_PREFIX=$(ocamlc -where):$BUILD_PATH_PREFIX_MAP"
 
 If Merlin field is absent, default context is chosen
 
@@ -21,9 +21,9 @@ If Merlin field is absent, default context is chosen
   ..
   lib-foo
 
-  $ dune ocaml-merlin --dump-config="$(pwd)"
+  $ dune ocaml merlin dump-config "$PWD"
   Foo
-  ((STDLIB OPAM_PREFIX/lib/ocaml)
+  ((STDLIB OPAM_PREFIX)
    (EXCLUDE_QUERY_DIR)
    (B
     $TESTCASE_ROOT/_build/default/.foo.objs/byte)
@@ -35,7 +35,8 @@ If Merlin field is absent, default context is chosen
      -strict-sequence
      -strict-formats
      -short-paths
-     -keep-locs)))
+     -keep-locs
+     -g)))
 
 If Merlin field is present, this context is chosen
 
@@ -58,9 +59,9 @@ If Merlin field is present, this context is chosen
   $ [ ! -d _build/default/.merlin-conf ] && echo "No config in default"
   No config in default
 
-  $ dune ocaml-merlin --dump-config="$(pwd)"
+  $ dune ocaml merlin dump-config "$PWD"
   Foo
-  ((STDLIB OPAM_PREFIX/lib/ocaml)
+  ((STDLIB OPAM_PREFIX)
    (EXCLUDE_QUERY_DIR)
    (B
     $TESTCASE_ROOT/_build/cross/.foo.objs/byte)
@@ -72,4 +73,5 @@ If Merlin field is present, this context is chosen
      -strict-sequence
      -strict-formats
      -short-paths
-     -keep-locs)))
+     -keep-locs
+     -g)))

@@ -6,9 +6,9 @@ Uploaders: Stéphane Glondu <glondu@debian.org>
 Build-Depends:
  debhelper-compat (= 13),
  ocaml-nox,
- libcsexp-ocaml-dev,
+ libcsexp-ocaml-dev <!pkg.ocaml-dune.nocsexp>,
  dh-ocaml
-Standards-Version: 4.5.0
+Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://github.com/ocaml/dune
 Vcs-Git: https://salsa.debian.org/ocaml-team/ocaml-dune.git
@@ -36,10 +36,13 @@ Description: composable build system for OCaml projects
 
 Package: libdune-ocaml-dev
 Architecture: any
+Build-Profiles: <!pkg.ocaml-dune.nocsexp>
 Depends:
  ${ocaml:Depends},
  ${shlibs:Depends},
  ${misc:Depends}
+Provides:
+ ${ocaml:Provides}
 Suggests:
  ocaml-findlib
 Description: composable build system for OCaml projects (libraries)
@@ -51,17 +54,3 @@ Description: composable build system for OCaml projects (libraries)
  .
  This package contains the libraries dune-private-libs and
  dune-configurator.
-
-Package: dune
-Section: oldlibs
-Architecture: all
-Depends: ocaml-dune, ${misc:Depends}
-Description: composable build system for OCaml projects -- transitional package
- Dune is a build system designed for OCaml/Reason projects
- only. It focuses on providing the user with a consistent experience
- and takes care of most of the low-level details of OCaml
- compilation. All you have to do is provide a description of your
- project and Dune will do the rest.
- .
- ocaml-dune was previously called dune; this is a transitional package,
- which can be safely removed.

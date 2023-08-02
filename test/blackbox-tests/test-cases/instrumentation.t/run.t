@@ -114,7 +114,7 @@ We also check that we can declare dependencies to the ppx.
   [1]
 
   $ cat >dune-project <<EOF
-  > (lang dune 2.9)
+  > (lang dune 3.0)
   > EOF
   $ dune build --instrument-with hello
   $ _build/default/main.exe
@@ -166,7 +166,7 @@ Per-context setting takes precedence over per-workspace setting.
 Next, we check the backend can be used when it is installed.
 
   $ dune build ppx/hello.install
-  $ dune install hello --prefix _install 2>/dev/null
+  $ dune install hello --prefix _install
   $ grep instrumentation.backend _install/lib/hello/dune-package
    (instrumentation.backend hello.ppx))
   $ mkdir -p installed
@@ -185,7 +185,8 @@ Next, we check the backend can be used when it is installed.
   > EOF
   $ cat >installed/main.ml <<EOF
   > EOF
-  $ OCAMLPATH=$PWD/_install/lib dune build --root installed
+  $ OCAMLPATH=$PWD/_install/lib:$OCAMLPATH dune build --root installed
   Entering directory 'installed'
+  Leaving directory 'installed'
   $ installed/_build/default/main.exe
   Hello from Main!

@@ -1,26 +1,20 @@
-open Stdune
+open Import
 
-type t =
-  | File of Path.t
-  | Alias of Alias.t
+type target_type =
+  | File
+  | Directory
 
-val request : t list -> unit Dune_engine.Build.t
+(** List of all buildable direct targets. This does not include files and
+    directories produced under a directory target.
 
-val resolve_target :
-     Common.t
-  -> setup:Dune_rules.Main.build_system
-  -> Arg.Dep.t
-  -> (t list, Arg.Dep.t * User_message.Style.t Pp.t list) result
+    If argument is [None], load the root, otherwise only load targets from the
+    nearest subdirectory. *)
+val all_direct_targets :
+  Path.Source.t option -> target_type Path.Build.Map.t Memo.t
 
-type resolve_input =
-  | Path of Path.t
-  | Dep of Arg.Dep.t
-
-val resolve_targets_mixed :
-     Common.t
+val interpret_targets :
+     Workspace_root.t
+  -> Dune_config.t
   -> Dune_rules.Main.build_system
-  -> resolve_input list
-  -> (t list, Arg.Dep.t * User_message.Style.t Pp.t list) result list
-
-val resolve_targets_exn :
-  Common.t -> Dune_rules.Main.build_system -> Arg.Dep.t list -> t list
+  -> Arg.Dep.t list
+  -> unit Dune_engine.Action_builder.t

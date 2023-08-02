@@ -1,12 +1,13 @@
-  $ dune build --debug-dependency-path
-  File "b/dune", line 4, characters 11-12:
-  4 |  (theories a))
-                 ^
-  Error: Theory a not found
-  -> required by b/b.v.d
-  -> required by b/b.vo
-  -> required by install lib/coq/user-contrib/b/b.vo
-  -> required by cvendor.install
-  -> required by alias default
-  -> required by alias default
-  [1]
+
+  $ dune build
+  Warning: Coq Language Versions lower than 0.8 have been deprecated in Dune
+  3.8 and will be removed in an upcoming Dune version.
+  lib: [
+    "_build/install/default/lib/cvendor/META"
+    "_build/install/default/lib/cvendor/dune-package"
+    "_build/install/default/lib/cvendor/opam"
+  ]
+  lib_root: [
+    "_build/install/default/lib/coq/user-contrib/b/b.v" {"coq/user-contrib/b/b.v"}
+    "_build/install/default/lib/coq/user-contrib/b/b.vo" {"coq/user-contrib/b/b.vo"}
+  ]

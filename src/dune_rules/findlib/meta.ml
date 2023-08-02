@@ -1,5 +1,3 @@
-open! Stdune
-open! Dune_engine
 open Import
 
 module Meta_parser = Dune_meta_parser.Meta_parser.Make (struct
@@ -9,20 +7,18 @@ end)
 
 include Meta_parser
 
-let dyn_of_action =
-  let open Dyn.Encoder in
-  function
-  | Set -> constr "Set" []
-  | Add -> constr "Add" []
+let dyn_of_action = function
+  | Set -> Dyn.variant "Set" []
+  | Add -> Dyn.variant "Add" []
 
 let dyn_of_predicate =
-  let open Dyn.Encoder in
+  let open Dyn in
   function
-  | Pos s -> constr "Pos" [ String s ]
-  | Neg s -> constr "Neg" [ String s ]
+  | Pos s -> variant "Pos" [ String s ]
+  | Neg s -> variant "Neg" [ String s ]
 
 let dyn_of_rule { var; predicates; action; value } =
-  let open Dyn.Encoder in
+  let open Dyn in
   record
     [ ("var", string var)
     ; ("predicates", list dyn_of_predicate predicates)
@@ -31,14 +27,14 @@ let dyn_of_rule { var; predicates; action; value } =
     ]
 
 let rec dyn_of_entry (entry : entry) =
-  let open Dyn.Encoder in
+  let open Dyn in
   match entry with
-  | Comment c -> constr "Comment" [ string c ]
-  | Rule r -> constr "Rule" [ dyn_of_rule r ]
-  | Package p -> constr "Package" [ to_dyn p ]
+  | Comment c -> variant "Comment" [ string c ]
+  | Rule r -> variant "Rule" [ dyn_of_rule r ]
+  | Package p -> variant "Package" [ to_dyn p ]
 
 and to_dyn { name; entries } =
-  let open Dyn.Encoder in
+  let open Dyn in
   record
     [ ("name", option Lib_name.to_dyn name)
     ; ("entries", list dyn_of_entry entries)
@@ -62,7 +58,7 @@ module Simplified = struct
       }
 
     let to_dyn { set_rules; add_rules } =
-      let open Dyn.Encoder in
+      let open Dyn in
       record
         [ ("set_rules", list dyn_of_rule set_rules)
         ; ("add_rules", list dyn_of_rule add_rules)
@@ -75,8 +71,12 @@ module Simplified = struct
     ; subs : t list
     }
 
+  let equal = Poly.equal
+
+  let hash = Poly.hash
+
   let rec to_dyn { name; vars; subs } =
-    let open Dyn.Encoder in
+    let open Dyn in
     record
       [ ("name", option Lib_name.to_dyn name)
       ; ("vars", String.Map.to_dyn Rules.to_dyn vars)
@@ -117,9 +117,14 @@ let rec complexify t =
 
 let parse_entries lb = Parse.entries lb 0 []
 
-let load p ~name =
+let of_lex lex ~name =
   let name = Option.map name ~f:Lib_name.of_package_name in
-  { name; entries = Io.with_lexbuf_from_file p ~f:parse_entries } |> simplify
+  let entries = parse_entries lex in
+  simplify { name; entries }
+
+let load p ~name = Fs_memo.with_lexbuf_from_file p ~f:(of_lex ~name)
+
+let of_string s ~name = of_lex (Lexing.from_string s) ~name
 
 let rule var predicates action value = Rule { var; predicates; action; value }
 
@@ -142,19 +147,20 @@ let archives ?(kind = [ Mode.Byte; Mode.Native ]) name =
     ; (Mode.Native, archive, Mode.compiled_lib_ext)
     ; (Mode.Byte, plugin, Mode.compiled_lib_ext)
     ; (Mode.Native, plugin, Mode.plugin_ext)
-    ] ~f:(fun (k, f, ext) ->
-      if List.mem k ~set:kind then
+    ]
+    ~f:(fun (k, f, ext) ->
+      if List.mem kind k ~equal:Mode.equal then
         Some (f (Mode.to_string k) (name ^ ext k))
-      else
-        None)
+      else None)
 
-(* fake entry we use to pass down the list of toplevel modules for root_module *)
+(* fake entry we use to pass down the list of toplevel modules for
+   root_module *)
 let main_modules names =
   List.map ~f:String.capitalize_ascii names
   |> String.concat ~sep:" " |> rule "main_modules" [] Set
 
-let builtins ~stdlib_dir ~version:ocaml_version =
-  let version = version "[distributed with Ocaml]" in
+let pre_ocaml_5_builtins ~stdlib_dir ~version:ocaml_version =
+  let version = version "[distributed with OCaml]" in
   let simple name ?(labels = false) ?dir ?archive_name ?kind ?exists_if_ext deps
       =
     let archive_name =
@@ -168,21 +174,15 @@ let builtins ~stdlib_dir ~version:ocaml_version =
           | '-' -> '_'
           | c -> c)
       in
-      if labels then
-        main_modules [ name; name ^ "Labels" ]
-      else
-        main_modules [ name ]
+      if labels then main_modules [ name; name ^ "Labels" ]
+      else main_modules [ name ]
     in
     let name = Lib_name.of_string name in
     let archives = archives archive_name ?kind in
     let main_modules = main_modules in
     { name = Some name
     ; entries =
-        requires deps
-        ::
-        version
-        ::
-        main_modules
+        requires deps :: version :: main_modules
         ::
         (match dir with
         | None -> []
@@ -197,6 +197,10 @@ let builtins ~stdlib_dir ~version:ocaml_version =
     { name = Some (Lib_name.of_string name)
     ; entries = [ version; main_modules [ name ] ]
     }
+  in
+  let sandbox_if_necessary dir =
+    if Ocaml.Version.has_sandboxed_otherlibs ocaml_version then "+" ^ dir
+    else "+"
   in
   let compiler_libs =
     let sub name ?kind ?exists_if_ext deps =
@@ -220,40 +224,45 @@ let builtins ~stdlib_dir ~version:ocaml_version =
     }
   in
   let stdlib = dummy "stdlib" in
-  let str = simple "str" [] ~dir:"+" in
-  let unix = simple ~labels:true "unix" [] ~dir:"+" in
-  let bigarray =
-    if
-      Ocaml_version.stdlib_includes_bigarray ocaml_version
-      && not (Path.exists (Path.relative stdlib_dir "bigarray.cma"))
-    then
-      dummy "bigarray"
+  let str = simple "str" [] ~dir:(sandbox_if_necessary "str") in
+  let unix = simple ~labels:true "unix" [] ~dir:(sandbox_if_necessary "unix") in
+  let open Memo.O in
+  let* bigarray =
+    let simple () = simple "bigarray" [ "unix" ] ~dir:"+" in
+    if not (Ocaml.Version.stdlib_includes_bigarray ocaml_version) then
+      Memo.return (simple ())
     else
-      simple "bigarray" [ "unix" ] ~dir:"+"
+      let+ cma =
+        Fs_memo.file_exists
+          (Path.as_outside_build_dir_exn
+             (Path.relative stdlib_dir "bigarray.cma"))
+      in
+      if cma then simple () else dummy "bigarray"
   in
-  let dynlink = simple "dynlink" [] ~dir:"+" in
+  let dynlink = simple "dynlink" [] ~dir:(sandbox_if_necessary "dynlink") in
   let bytes = dummy "bytes" in
-  let result = dummy "result" in
-  let uchar = dummy "uchar" in
-  let seq = dummy "seq" in
   let threads =
     { name = Some (Lib_name.of_string "threads")
     ; entries =
-        [ version
-        ; main_modules [ "thread" ]
-        ; requires ~preds:[ Pos "mt"; Pos "mt_vm" ] [ "threads.vm" ]
-        ; requires ~preds:[ Pos "mt"; Pos "mt_posix" ] [ "threads.posix" ]
-        ; directory "+"
-        ; rule "type_of_threads" [] Set "posix"
-        ; rule "error" [ Neg "mt" ] Set "Missing -thread or -vmthread switch"
-        ; rule "error"
-            [ Neg "mt_vm"; Neg "mt_posix" ]
-            Set "Missing -thread or -vmthread switch"
-        ; Package
-            (simple "vm" [ "unix" ] ~dir:"+vmthreads" ~archive_name:"threads")
-        ; Package
-            (simple "posix" [ "unix" ] ~dir:"+threads" ~archive_name:"threads")
-        ]
+        ([ version
+         ; main_modules [ "thread" ]
+         ; requires ~preds:[ Pos "mt"; Pos "mt_vm" ] [ "threads.vm" ]
+         ; requires ~preds:[ Pos "mt"; Pos "mt_posix" ] [ "threads.posix" ]
+         ; directory "+"
+         ; rule "type_of_threads" [] Set "posix"
+         ; rule "error" [ Neg "mt" ] Set "Missing -thread or -vmthread switch"
+         ; rule "error"
+             [ Neg "mt_vm"; Neg "mt_posix" ]
+             Set "Missing -thread or -vmthread switch"
+         ; Package
+             (simple "posix" [ "unix" ] ~dir:"+threads" ~archive_name:"threads")
+         ]
+        @
+        if Ocaml.Version.has_vmthreads ocaml_version then
+          [ Package
+              (simple "vm" [ "unix" ] ~dir:"+vmthreads" ~archive_name:"threads")
+          ]
+        else [])
     }
   in
   let num =
@@ -270,55 +279,40 @@ let builtins ~stdlib_dir ~version:ocaml_version =
   let ocamldoc =
     simple "ocamldoc" [ "compiler-libs" ] ~dir:"+ocamldoc" ~kind:[]
   in
-  let libs =
+  let+ libs =
     let base =
-      [ stdlib
-      ; compiler_libs
-      ; str
-      ; unix
-      ; bigarray
-      ; threads
-      ; dynlink
-      ; bytes
-      ; ocamldoc
-      ]
+      [ stdlib; compiler_libs; str; unix; threads; dynlink; bytes; ocamldoc ]
     in
     let base =
-      if Ocaml_version.pervasives_includes_result ocaml_version then
-        result :: base
-      else
-        base
+      if Ocaml.Version.has_bigarray_library ocaml_version then bigarray :: base
+      else base
     in
-    let base =
-      if Ocaml_version.stdlib_includes_uchar ocaml_version then
-        uchar :: base
-      else
-        base
-    in
-    let base =
-      if Ocaml_version.stdlib_includes_seq ocaml_version then
-        seq :: base
-      else
-        base
-    in
-    let base =
-      if Path.exists (Path.relative stdlib_dir "graphics.cma") then
-        graphics :: base
-      else
-        base
+    let* base =
+      let+ cma =
+        Fs_memo.file_exists
+          (Path.as_outside_build_dir_exn
+             (Path.relative stdlib_dir "graphics.cma"))
+      in
+      if cma then graphics :: base else base
     in
     (* We do not rely on an "exists_if" ocamlfind variable, because it would
        produce an error message mentioning a "hidden" package (which could be
        confusing). *)
-    if Path.exists (Path.relative stdlib_dir "nums.cma") then
-      num :: base
-    else
-      base
+    let+ nums_cma =
+      Fs_memo.file_exists
+        (Path.as_outside_build_dir_exn (Path.relative stdlib_dir "nums.cma"))
+    in
+    if nums_cma then num :: base else base
   in
   List.filter_map libs ~f:(fun t ->
       Option.map t.name ~f:(fun name ->
           (Lib_name.package_name name, simplify t)))
   |> Package.Name.Map.of_list_exn
+
+let builtins ~stdlib_dir ~version =
+  if Ocaml.Version.has_META_files version then
+    Memo.return Package.Name.Map.empty
+  else pre_ocaml_5_builtins ~stdlib_dir ~version
 
 let string_of_action = function
   | Set -> "="
@@ -349,8 +343,7 @@ let pp_quoted_value var =
   | "requires"
   | "ppx_runtime_deps"
   | "linkopts"
-  | "jsoo_runtime" ->
-    pp_print_text
+  | "jsoo_runtime" -> pp_print_text
   | _ -> pp_print_string
 
 let rec pp entries = Pp.vbox (Pp.concat_map entries ~sep:Pp.newline ~f:pp_entry)

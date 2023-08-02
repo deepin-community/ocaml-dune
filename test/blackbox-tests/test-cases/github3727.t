@@ -1,6 +1,6 @@
-This bug demonstrate a distinction between public & private names.
+This bug demonstrates a distinction between public & private names.
 
-When -p was used, private names would dissapear as they would be filtered by the
+When -p was used, private names would disappear as they would be filtered by the
 stanza filter. This behavior is incorrect and private names should remain
 visible regardless if the stanzas were filtered.
 
@@ -36,7 +36,7 @@ visible regardless if the stanzas were filtered.
 
   $ rm -rf _build
   $ dune build -p foo
-  $ dune install foo --prefix ./_install
+  $ dune install foo --prefix ./_install --display=short
   Installing _install/lib/foo/META
   Installing _install/lib/foo/bar/private_foo.a
   Installing _install/lib/foo/bar/private_foo.cma

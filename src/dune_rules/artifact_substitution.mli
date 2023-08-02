@@ -21,24 +21,21 @@ type hardcoded_ocaml_path =
   | Relocatable of Path.t
 
 type conf = private
-  { get_vcs : Path.Source.t -> Vcs.t option
+  { get_vcs : Path.Source.t -> Vcs.t option Memo.t
   ; get_location : Section.t -> Package.Name.t -> Path.t
   ; get_config_path : configpath -> Path.t option
   ; hardcoded_ocaml_path : hardcoded_ocaml_path
         (** Initial prefix of installation when relocatable chosen *)
+  ; sign_hook : (Path.t -> unit Fiber.t) option Lazy.t
+        (** Called on binary after if has been edited *)
   }
 
-val conf_of_context : Build_context.t option -> conf
+val conf_of_context : Context.t option -> conf
 
 val conf_for_install :
-     relocatable:bool
-  -> default_ocamlpath:Path.t list
-  -> stdlib_dir:Path.t
-  -> prefix:Path.t
-  -> libdir:Path.t option
-  -> mandir:Path.t option
-  -> docdir:Path.t option
-  -> etcdir:Path.t option
+     relocatable:Path.t option
+  -> roots:Path.t Install.Roots.t
+  -> context:Context.t
   -> conf
 
 val conf_dummy : conf
@@ -56,30 +53,39 @@ val encode : ?min_len:int -> t -> string
 (** [decode s] returns the value [t] such that [encode t = s]. *)
 val decode : string -> t option
 
-(** Copy a file, performing all required substitutions *)
+(** Copy a file, performing all required substitutions. The operation is atomic,
+    i.e., the contents is first copied to a temporary file in the same directory
+    and then atomically renamed to [dst]. *)
 val copy_file :
      conf:conf
   -> ?chmod:(int -> int)
+  -> ?delete_dst_if_it_is_a_directory:bool
   -> src:Path.t
   -> dst:Path.t
   -> unit
   -> unit Fiber.t
+
+type status =
+  | Some_substitution
+  | No_substitution
 
 (** Generic version of [copy_file]. Rather than filenames, it takes an input and
     output functions. Their semantic must match the ones of the [input] and
     [output] functions from the OCaml standard library.
 
     [input_file] is used only for debugging purposes. It must be the name of the
-    source file. *)
+    source file.
+
+    Return whether a substitution happened. *)
 val copy :
      conf:conf
   -> input_file:Path.t
   -> input:(Bytes.t -> int -> int -> int)
   -> output:(Bytes.t -> int -> int -> unit)
-  -> unit Fiber.t
+  -> status Fiber.t
 
 (** Produce the string that would replace the placeholder with the given value .*)
 val encode_replacement : len:int -> repl:string -> string
 
-(** test if a file is in the given file *)
-val test_file : src:Path.t -> unit -> bool Fiber.t
+(** Test if a file contains a substitution placeholder. *)
+val test_file : src:Path.t -> unit -> status Fiber.t

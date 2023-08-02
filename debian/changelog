@@ -1,8 +1,55 @@
-ocaml-dune (2.9.1-deepin1) unstable; urgency=medium
+ocaml-dune (3.9.1-1) unstable; urgency=medium
 
-  * Rebuild
+  * New upstream release
 
- -- Deepin Packages Builder <packages@deepin.org>  Fri, 25 Nov 2022 20:33:21 +0800
+ -- Stéphane Glondu <glondu@debian.org>  Sun, 16 Jul 2023 11:41:12 +0200
+
+ocaml-dune (3.9.0-3) unstable; urgency=medium
+
+  [ Pino Toscano ]
+  * Deal with PIPE_BUF not present (as in GNU/Hurd), applying a patch
+    proposed for the OCaml 'spawn' library; patch
+    vendor-spawn-pipe_buf.diff.
+
+  [ Dan Bungert ]
+  * Add dh_ocaml compatible substitution variables per OCaml packaging
+    policy (Closes: #1040874)
+
+ -- Stéphane Glondu <glondu@debian.org>  Thu, 13 Jul 2023 08:14:09 +0200
+
+ocaml-dune (3.9.0-2) unstable; urgency=medium
+
+  * Team upload.
+  * Ship xdg (used by utop 2.13.x).
+
+ -- Julien Puydt <jpuydt@debian.org>  Wed, 05 Jul 2023 10:40:57 +0200
+
+ocaml-dune (3.9.0-1) unstable; urgency=medium
+
+  * Team upload.
+  * Install stdune in the -dev package (Closes: #1040344).
+  * New upstream release.
+
+ -- Julien Puydt <jpuydt@debian.org>  Wed, 05 Jul 2023 09:57:47 +0200
+
+ocaml-dune (3.8.2-1) unstable; urgency=medium
+
+  * Team upload.
+  * Fix d/watch.
+  * Drop transitional dune package (Closes: #1038290).
+  * Bump standards-version to 4.6.2.
+  * New upstream release.
+  * Adapt the building rules to the new upstream.
+
+ -- Julien Puydt <jpuydt@debian.org>  Mon, 03 Jul 2023 18:32:07 +0200
+
+ocaml-dune (2.9.3-1) unstable; urgency=medium
+
+  * New upstream release
+  * Add pkg.ocaml-dune.nocsexp build profile, to cut build-dependency
+    loop if needed
+
+ -- Stéphane Glondu <glondu@debian.org>  Wed, 01 Feb 2023 08:50:59 +0100
 
 ocaml-dune (2.9.1-1) unstable; urgency=medium
 

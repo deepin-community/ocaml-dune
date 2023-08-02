@@ -1,18 +1,12 @@
 (** Actions as they are written in dune files. *)
-open! Dune_engine
 
-open Stdune
+open Import
 
 include module type of struct
-    (** The type definition exists in [Action_dune_lang] and not here to break
-        cycles.*)
-    include Action_dune_lang
-  end
-  (* We don't want to leak ugly aliases *)
-  with type program := String_with_vars.t
-   and type string := String_with_vars.t
-   and type path := String_with_vars.t
-   and type target := String_with_vars.t
+  (** The type definition exists in [Action_dune_lang] and not here to break
+      cycles.*)
+  include Dune_lang.Action
+end
 
 val remove_locs : t -> t
 
@@ -22,29 +16,24 @@ val remove_locs : t -> t
     and targets, and verifies invariants such as:
 
     - All the targets are in [targets_dir]
-    - The [targets] mode is respected
-
-    [foreign_flags] has to be passed because it depends on [Super_context].
-    Fetching it directly would introduce a dependency cycle. *)
+    - The [targets] mode is respected *)
 val expand :
      t
   -> loc:Loc.t
-  -> dep_kind:Lib_deps_info.Kind.t
+  -> chdir:Path.Build.t
+  -> deps:Dep_conf.t Bindings.t
   -> targets_dir:Path.Build.t
-  -> targets:Targets.Or_forbidden.t
+  -> targets:Path.Build.t Targets_spec.t
   -> expander:Expander.t
-  -> Path.t Bindings.t Build.t
-  -> Action.t Build.With_targets.t
+  -> Action.Full.t Action_builder.With_targets.t Memo.t
 
-(** This module is exposed only for testing *)
-module Infer : sig
-  module Outcome : sig
-    type t = private
-      { deps : Path.Set.t
-      ; deps_if_exist : Path.Set.t
-      ; targets : Path.Build.Set.t
-      }
-  end
-
-  val infer : Action.t -> Outcome.t
-end
+(** [what] as the same meaning as the argument of
+    [Expander.Expanding_what.User_action_without_targets] *)
+val expand_no_targets :
+     t
+  -> loc:Loc.t
+  -> chdir:Path.Build.t
+  -> deps:Dep_conf.t Bindings.t
+  -> expander:Expander.t
+  -> what:string
+  -> Action.Full.t Action_builder.t

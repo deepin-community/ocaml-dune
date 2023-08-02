@@ -1,12 +1,13 @@
 let jbuild_plugin_ml = {jbp|
+let directive_table = Toploop.directive_table [@@ocaml.warning "-3"]
+
 let () =
-  Hashtbl.add Toploop.directive_table "require"
-    (Toploop.Directive_string ignore);
-  Hashtbl.add Toploop.directive_table "use"
+  Hashtbl.add directive_table "require" (Toploop.Directive_string ignore);
+  Hashtbl.add directive_table "use"
     (Toploop.Directive_string
        (fun _ ->
          failwith "#use is not allowed inside a dune file in OCaml syntax"));
-  Hashtbl.add Toploop.directive_table "use_mod"
+  Hashtbl.add directive_table "use_mod"
     (Toploop.Directive_string
        (fun _ ->
          failwith "#use is not allowed inside a dune file in OCaml syntax"))
@@ -42,8 +43,7 @@ module V1 = struct
       | line -> loop ic (line :: acc)
     in
     let output = loop (open_in tmp_fname) [] in
-    if n = 0 then
-      output
+    if n = 0 then output
     else
       Printf.ksprintf failwith
         "Command failed: %%s\nExit code: %%d\nOutput:\n%%s" cmd n

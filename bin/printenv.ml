@@ -1,18 +1,7 @@
-open Stdune
 open Import
 
-let doc = "Print the environment of a directory"
-
-let man =
-  [ `S "DESCRIPTION"
-  ; `P {|$(b,dune printenv DIR) prints the environment of a directory|}
-  ; `Blocks Common.help_secs
-  ]
-
-let info = Term.info "printenv" ~doc ~man
-
 let dump sctx ~dir =
-  let open Build.O in
+  let open Action_builder.O in
   let+ env = Super_context.dump_env sctx ~dir in
   ((Super_context.context sctx).name, env)
 
@@ -28,11 +17,11 @@ let pp ppf ~fields sexps =
       in
       if do_print then
         let version =
-          Dune_lang.Syntax.greatest_supported_version Dune_engine.Stanza.syntax
+          Dune_lang.Syntax.greatest_supported_version Stanza.syntax
         in
         Dune_lang.Ast.add_loc sexp ~loc:Loc.none
         |> Dune_lang.Cst.concrete |> List.singleton
-        |> Dune_engine.Format_dune_lang.pp_top_sexps ~version
+        |> Dune_lang.Format.pp_top_sexps ~version
         |> Format.fprintf ppf "%a@?" Pp.to_fmt)
 
 let term =
@@ -46,14 +35,15 @@ let term =
             "Only print this field. This option can be repeated multiple times \
              to print multiple fields.")
   in
-  Common.set_common common ~targets:[];
-  Scheduler.go ~common (fun () ->
+  let config = Common.init common in
+  Scheduler.go ~common ~config (fun () ->
       let open Fiber.O in
-      let* setup = Import.Main.setup common in
+      let* setup = Import.Main.setup () in
+      let* setup = Memo.run setup in
       let dir = Path.of_string dir in
-      let checked = Util.check_path setup.workspace.contexts dir in
+      let checked = Util.check_path setup.contexts dir in
       let request =
-        Build.all
+        Action_builder.all
           (match checked with
           | In_build_dir (ctx, _) ->
             let sctx =
@@ -75,7 +65,11 @@ let term =
             User_error.raise
               [ Pp.text "Environment is not defined in install dirs" ])
       in
-      Build_system.do_build ~request >>| function
+      Build_system.run_exn (fun () ->
+          let open Memo.O in
+          let+ res, _facts = Action_builder.run request Eager in
+          res)
+      >>| function
       | [ (_, env) ] -> Format.printf "%a" (pp ~fields) env
       | l ->
         List.iter l ~f:(fun (name, env) ->
@@ -83,4 +77,12 @@ let term =
               (Dune_engine.Context_name.to_string name)
               (pp ~fields) env))
 
-let command = (term, info)
+let command =
+  let doc = "Print the environment of a directory" in
+  let man =
+    [ `S "DESCRIPTION"
+    ; `P {|$(b,dune show env DIR) prints the environment of a directory|}
+    ; `Blocks Common.help_secs
+    ]
+  in
+  Cmd.v (Cmd.info "env" ~doc ~man) term

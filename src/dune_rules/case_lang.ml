@@ -1,5 +1,4 @@
-open! Dune_engine
-open! Stdune
+open Import
 
 module Ast = struct
   type ('k, 'v) t =
@@ -36,5 +35,5 @@ let eval (t : _ t) ~f =
   let elem = f t.on in
   List.find_map t.clauses ~f:(fun (keys, v) ->
       Option.some_if
-        (Predicate_lang.Glob.exec keys ~standard:Predicate_lang.empty elem)
+        (Predicate_lang.Glob.test keys ~standard:Predicate_lang.false_ elem)
         v)

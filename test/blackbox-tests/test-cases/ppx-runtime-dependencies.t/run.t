@@ -59,13 +59,11 @@ Handling ppx_runtime_libraries dependencies correctly
   > EOF
 
   $ ./sdune exec bin/main.exe
-  Error: Dependency cycle detected between the following libraries:
-     "a" in _build/default
-  -> "b" in _build/default
-  -> "c" in _build/default
-  -> "a" in _build/default
-  -> required by library "c" in _build/default
-  -> required by executable main in bin/dune:2
+  Error: Dependency cycle between:
+     library "b" in _build/default
+  -> library "a" in _build/default
+  -> library "c" in _build/default
+  -> library "b" in _build/default
   [1]
 
 ----------------------------------------------------------------------------------
@@ -87,8 +85,7 @@ Note the direct dependency b ---> ppx that separates pps and runtime dependencie
   >  (modules ppx)
   >  (kind ppx_rewriter)
   >  (libraries ppxlib)
-  >  (ppx_runtime_libraries c)
-  >  )
+  >  (ppx_runtime_libraries c))
   > (library
   >  (name c)
   >  (modules c)
@@ -117,6 +114,9 @@ not been marked with (kind ppx_rewriter).
                         ^
   Error: Ppx dependency on a non-ppx library "b". If "b" is in fact a ppx
   rewriter library, it should have (kind ppx_rewriter) in its dune file.
+  -> required by _build/default/bin/.main.eobjs/byte/dune__exe__Main.cmi
+  -> required by _build/default/bin/.main.eobjs/native/dune__exe__Main.cmx
+  -> required by _build/default/bin/main.exe
   [1]
 
 ----------------------------------------------------------------------------------
@@ -137,14 +137,12 @@ Note that pps dependencies are separated by a runtime dependency.
   >  (modules ppx)
   >  (kind ppx_rewriter)
   >  (libraries ppxlib)
-  >  (ppx_runtime_libraries c)
-  >  )
+  >  (ppx_runtime_libraries c))
   > (library
   >  (name c)
   >  (modules c)
   >  (libraries ppxlib)
-  >  (preprocess (pps gen_c))
-  > )
+  >  (preprocess (pps gen_c)))
   > EOF
 
   $ cat >c.ml <<EOF
@@ -163,11 +161,9 @@ Note that pps dependencies are separated by a runtime dependency.
   > EOF
 
   $ ./sdune exec bin/main.exe
-  Error: Dependency cycle detected between the following libraries:
-     "gen_c" in _build/default
-  -> "ppx" in _build/default
-  -> "c" in _build/default
-  -> "gen_c" in _build/default
-  -> required by library "c" in _build/default
-  -> required by executable main in bin/dune:2
+  Error: Dependency cycle between:
+     library "c" in _build/default
+  -> library "ppx" in _build/default
+  -> library "gen_c" in _build/default
+  -> library "c" in _build/default
   [1]

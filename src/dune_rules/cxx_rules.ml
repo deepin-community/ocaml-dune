@@ -1,5 +1,4 @@
-open! Stdune
-open! Dune_engine
+open Import
 
 let header_file_content =
   {|
@@ -18,8 +17,9 @@ CCOMP
 
 let rules ~sctx ~dir =
   let file = Path.Build.relative dir Cxx_flags.preprocessed_filename in
-  let ocfg = (Super_context.context sctx).ocaml_config in
-  let prog =
+  let ocfg = (Super_context.context sctx).ocaml.ocaml_config in
+  let open Memo.O in
+  let* prog =
     Super_context.resolve_program sctx ~dir ~loc:None
       (Ocaml_config.c_compiler ocfg)
   in
@@ -31,14 +31,14 @@ let rules ~sctx ~dir =
     [ (match Ocaml_config.ccomp_type ocfg with
       | Msvc -> A "/EP"
       | Other _ -> As [ "-E"; "-P" ])
-    ; A Path.(to_absolute_filename (build header_file))
+    ; Path (Path.build header_file)
     ]
   in
   let action =
-    let open Build.With_targets.O in
+    let open Action_builder.With_targets.O in
     let+ run_preprocessor =
       Command.run ~dir:(Path.build dir) ~stdout_to:file prog args
     in
-    Action.progn [ write_test_file; run_preprocessor ]
+    Action.Full.reduce [ Action.Full.make write_test_file; run_preprocessor ]
   in
   Super_context.add_rule sctx ~dir action

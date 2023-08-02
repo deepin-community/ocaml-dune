@@ -1,7 +1,5 @@
 (** Representation and parsing of Dune files *)
-open! Dune_engine
 
-open! Stdune
 open Import
 
 module Lint : sig
@@ -10,54 +8,35 @@ module Lint : sig
   val no_lint : t
 end
 
-module Js_of_ocaml : sig
-  type t =
-    { flags : Ordered_set_lang.Unexpanded.t
-    ; javascript_files : string list
-    }
-
-  val default : t
-end
-
 type for_ =
   | Executable
   | Library of Wrapped.t option
 
-module Lib_deps : sig
-  type nonrec t = Lib_dep.t list
-
-  val of_pps : Lib_name.t list -> t
-
-  val info : t -> kind:Lib_deps_info.Kind.t -> Lib_deps_info.t
-
-  val decode : for_ -> t Dune_lang.Decoder.t
-end
-
-(** [preprocess] and [preprocessor_deps] fields *)
-val preprocess_fields :
-  (Preprocess.Without_instrumentation.t Preprocess.Per_module.t
-  * Dep_conf.t list)
-  Dune_lang.Decoder.fields_parser
-
 module Buildable : sig
   type t =
     { loc : Loc.t
-    ; modules : Ordered_set_lang.t
-    ; modules_without_implementation : Ordered_set_lang.t
+    ; modules : Stanza_common.Modules_settings.t
+    ; empty_module_interface_if_absent : bool
     ; libraries : Lib_dep.t list
     ; foreign_archives : (Loc.t * Foreign.Archive.t) list
+    ; extra_objects : Foreign.Objects.t
     ; foreign_stubs : Foreign.Stubs.t list
     ; preprocess : Preprocess.With_instrumentation.t Preprocess.Per_module.t
     ; preprocessor_deps : Dep_conf.t list
     ; lint : Lint.t
     ; flags : Ocaml_flags.Spec.t
-    ; js_of_ocaml : Js_of_ocaml.t
+    ; js_of_ocaml : Js_of_ocaml.In_buildable.t
     ; allow_overlapping_dependencies : bool
-    ; root_module : (Loc.t * Module_name.t) option
+    ; ctypes : Ctypes_field.t option
     }
 
   (** Check if the buildable has any foreign stubs or archives. *)
   val has_foreign : t -> bool
+
+  (** Check if the buildable has any c++ foreign stubs. *)
+  val has_foreign_cxx : t -> bool
+
+  val has_mode_dependent_foreign_stubs : t -> bool
 end
 
 module Public_lib : sig
@@ -73,6 +52,12 @@ module Public_lib : sig
 
   (** Package it is part of *)
   val package : t -> Package.t
+
+  val make :
+       allow_deprecated_names:bool
+    -> Dune_project.t
+    -> Loc.t * Lib_name.t
+    -> (t, User_message.t) result
 end
 
 module Mode_conf : sig
@@ -101,8 +86,12 @@ module Mode_conf : sig
       }
   end
 
+  type mode_conf := t
+
   module Set : sig
     type nonrec t = Kind.t option Map.t
+
+    val of_list : (mode_conf * Kind.t) list -> t
 
     val decode : t Dune_lang.Decoder.t
 
@@ -113,6 +102,39 @@ module Mode_conf : sig
     val eval_detailed : t -> has_native:bool -> Details.t Mode.Dict.t
 
     val eval : t -> has_native:bool -> Mode.Dict.Set.t
+  end
+
+  module Lib : sig
+    type t =
+      | Ocaml of mode_conf
+      | Melange
+
+    val to_dyn : t -> Dyn.t
+
+    module Map : sig
+      type nonrec 'a t =
+        { ocaml : 'a Map.t
+        ; melange : 'a
+        }
+    end
+
+    module Set : sig
+      type mode_conf := t
+
+      type nonrec t = Kind.t option Map.t
+
+      val of_list : (mode_conf * Kind.t) list -> t
+
+      val decode : t Dune_lang.Decoder.t
+
+      module Details : sig
+        type t = Kind.t option
+      end
+
+      val eval_detailed : t -> has_native:bool -> Details.t Lib_mode.Map.t
+
+      val eval : t -> has_native:bool -> Lib_mode.Map.Set.t
+    end
   end
 end
 
@@ -125,9 +147,10 @@ module Library : sig
     { name : Loc.t * Lib_name.Local.t
     ; visibility : visibility
     ; synopsis : string option
-    ; install_c_headers : string list
+    ; install_c_headers : (Loc.t * string) list
+    ; public_headers : Loc.t * Dep_conf.t list
     ; ppx_runtime_libraries : (Loc.t * Lib_name.t) list
-    ; modes : Mode_conf.Set.t
+    ; modes : Mode_conf.Lib.Set.t
     ; kind : Lib_kind.t
           (* TODO: It may be worth remaming [c_library_flags] to
              [link_time_flags_for_c_compiler] and [library_flags] to
@@ -149,9 +172,11 @@ module Library : sig
     ; default_implementation : (Loc.t * Lib_name.t) option
     ; private_modules : Ordered_set_lang.t option
     ; stdlib : Ocaml_stdlib.t option
-    ; special_builtin_support : Lib_info.Special_builtin_support.t option
+    ; special_builtin_support :
+        (Loc.t * Lib_info.Special_builtin_support.t) option
     ; enabled_if : Blang.t
     ; instrumentation_backend : (Loc.t * Lib_name.t) option
+    ; melange_runtime_deps : Loc.t * Dep_conf.t list
     }
 
   val sub_dir : t -> string option
@@ -161,13 +186,24 @@ module Library : sig
   (** Check if the library has any foreign stubs or archives. *)
   val has_foreign : t -> bool
 
-  (** The list of all foreign archives, including the foreign stubs archive. *)
+  (** Check if the library has any c++ foreign stubs. *)
+  val has_foreign_cxx : t -> bool
+
+  (** The foreign stubs archive. *)
+  val stubs_archive : t -> Foreign.Archive.t option
+
+  (** The list of foreign archives. *)
   val foreign_archives : t -> Foreign.Archive.t list
 
   (** The [lib*.a] files of all foreign archives, including foreign stubs. [dir]
-      is the directory the library is declared in. *)
+      is the directory the library is declared in. Only files relevant to the
+      [for_mode] selection will be returned. *)
   val foreign_lib_files :
-    t -> dir:Path.Build.t -> ext_lib:string -> Path.Build.t list
+       t
+    -> dir:Path.Build.t
+    -> ext_lib:string
+    -> for_mode:Mode.Select.t
+    -> Path.Build.t list
 
   (** The path to a library archive. [dir] is the directory the library is
       declared in. *)
@@ -184,7 +220,7 @@ module Library : sig
   val main_module_name : t -> Lib_info.Main_module_name.t
 
   val to_lib_info :
-    t -> dir:Path.Build.t -> lib_config:Lib_config.t -> Lib_info.local
+    t -> dir:Path.Build.t -> lib_config:Lib_config.t -> Lib_info.local Memo.t
 end
 
 module Plugin : sig
@@ -192,15 +228,16 @@ module Plugin : sig
     { package : Package.t
     ; name : Package.Name.t
     ; libraries : (Loc.t * Lib_name.t) list
-    ; site : Loc.t * (Package.Name.t * Section.Site.t)
+    ; site : Loc.t * (Package.Name.t * Site.t)
     ; optional : bool
     }
 end
 
 module Install_conf : sig
   type t =
-    { section : Install.Section_with_site.t
-    ; files : File_binding.Unexpanded.t list
+    { section : Section_with_site.t
+    ; files : Install_entry.File.t list
+    ; dirs : Install_entry.Dir.t list
     ; package : Package.t
     ; enabled_if : Blang.t
     }
@@ -233,14 +270,19 @@ module Executables : sig
 
     val to_dyn : t -> Dyn.t
 
-    val extension : t -> loc:Loc.t -> ext_obj:string -> ext_dll:string -> string
+    val extension :
+         t
+      -> loc:Loc.t
+      -> ext_obj:Filename.Extension.t
+      -> ext_dll:Filename.Extension.t
+      -> string
 
     module Map : Map.S with type key = t
   end
 
   type t =
     { names : (Loc.t * string) list
-    ; link_flags : Ordered_set_lang.Unexpanded.t
+    ; link_flags : Link_flags.Spec.t
     ; link_deps : Dep_conf.t list
     ; modes : Loc.t Link_mode.Map.t
     ; optional : bool
@@ -252,26 +294,16 @@ module Executables : sig
     ; forbidden_libraries : (Loc.t * Lib_name.t) list
     ; bootstrap_info : string option
     ; enabled_if : Blang.t
+    ; dune_version : Dune_lang.Syntax.Version.t
     }
 
   (** Check if the executables have any foreign stubs or archives. *)
   val has_foreign : t -> bool
 
+  (** Check if the executables have any c++ foreign stubs. *)
+  val has_foreign_cxx : t -> bool
+
   val obj_dir : t -> dir:Path.Build.t -> Path.Build.t Obj_dir.t
-end
-
-module Menhir : sig
-  type t =
-    { merge_into : string option
-    ; flags : Ordered_set_lang.Unexpanded.t
-    ; modules : string list
-    ; mode : Rule.Mode.t
-    ; loc : Loc.t
-    ; infer : bool
-    ; enabled_if : Blang.t
-    }
-
-  type Stanza.t += T of t
 end
 
 module Copy_files : sig
@@ -287,14 +319,15 @@ end
 
 module Rule : sig
   type t =
-    { targets : String_with_vars.t Targets.t
+    { targets : String_with_vars.t Targets_spec.t
     ; deps : Dep_conf.t Bindings.t
-    ; action : Loc.t * Action_dune_lang.t
+    ; action : Loc.t * Dune_lang.Action.t
     ; mode : Rule.Mode.t
-    ; locks : String_with_vars.t list
+    ; patch_back_source_tree : bool
+    ; locks : Locks.t
     ; loc : Loc.t
     ; enabled_if : Blang.t
-    ; alias : Alias.Name.t option
+    ; aliases : Alias.Name.t list
     ; package : Package.t option
     }
 end
@@ -303,8 +336,8 @@ module Alias_conf : sig
   type t =
     { name : Alias.Name.t
     ; deps : Dep_conf.t Bindings.t
-    ; action : (Loc.t * Action_dune_lang.t) option
-    ; locks : String_with_vars.t list
+    ; action : (Loc.t * Dune_lang.Action.t) option
+    ; locks : Locks.t
     ; package : Package.t option
     ; enabled_if : Blang.t
     ; loc : Loc.t
@@ -322,11 +355,12 @@ end
 module Tests : sig
   type t =
     { exes : Executables.t
-    ; locks : String_with_vars.t list
+    ; locks : Locks.t
     ; package : Package.t option
     ; deps : Dep_conf.t Bindings.t
     ; enabled_if : Blang.t
-    ; action : Action_dune_lang.t option
+    ; build_if : Blang.t
+    ; action : Dune_lang.Action.t option
     }
 end
 
@@ -389,21 +423,6 @@ module Deprecated_library_name : sig
   val old_public_name : t -> Lib_name.t
 end
 
-(** Stanza which generate a module for getting information from dune *)
-module Generate_sites_module : sig
-  type t =
-    { loc : Loc.t
-    ; module_ : Module_name.t  (** name of the module to generate *)
-    ; sourceroot : bool  (** should the sourceroot of the project be provided *)
-    ; relocatable : bool
-          (** should the fact that the installation use the relocatable mode *)
-    ; sites : (Loc.t * Package.Name.t) list
-          (** list of the sites whose location should be given *)
-    ; plugins : (Loc.t * (Package.Name.t * (Loc.t * Section.Site.t))) list
-          (** list of the sites for which a plugin system must be provided *)
-    }
-end
-
 type Stanza.t +=
   | Library of Library.t
   | Foreign_library of Foreign.Library.t
@@ -418,34 +437,42 @@ type Stanza.t +=
   | Toplevel of Toplevel.t
   | Library_redirect of Library_redirect.Local.t
   | Deprecated_library_name of Deprecated_library_name.t
-  | Cram of Cram_stanza.t
-  | Generate_sites_module of Generate_sites_module.t
   | Plugin of Plugin.t
 
 val stanza_package : Stanza.t -> Package.t option
 
-module Stanzas : sig
-  type t = Stanza.t list
+(** [of_ast project ast] is the list of [Stanza.t]s derived from decoding the
+    [ast] according to the syntax given by [kind] in the context of the
+    [project] *)
+val of_ast : Dune_project.t -> Dune_lang.Ast.t -> Stanza.t list
 
-  type syntax =
-    | OCaml
-    | Plain
+(** A fully evaluated dune file *)
+type t =
+  { dir : Path.Source.t
+  ; project : Dune_project.t
+  ; stanzas : Stanza.t list
+  }
 
-  (** [of_ast project ast] is the list of [Stanza.t]s derived from decoding the
-      [ast] according to the syntax given by [kind] in the context of the
-      [project] *)
-  val of_ast : Dune_project.t -> Dune_lang.Ast.t -> Stanza.t list
+val equal : t -> t -> bool
 
-  (** [parse ~file ~kind project stanza_exprs] is a list of [Stanza.t]s derived
-      from decoding the [stanza_exprs] from [Dune_lang.Ast.t]s to [Stanza.t]s.
+val hash : t -> int
 
-      [file] is used to check for illegal recursive file inclusions and to
-      anchor file includes given as relative paths.
+val to_dyn : t -> Dyn.t
 
-      The stanzas are parsed in the context of the dune [project].
+val parse :
+     Dune_lang.Ast.t list
+  -> dir:Path.Source.t
+  -> file:Path.Source.t option
+  -> project:Dune_project.t
+  -> t Memo.t
 
-      The syntax [kind] determines whether the expected syntax is the
-      depreciated jbuilder syntax or the version of Dune syntax specified by the
-      current [project]. *)
-  val parse : file:Path.Source.t -> Dune_project.t -> Dune_lang.Ast.t list -> t
+val fold_stanzas :
+  t list -> init:'acc -> f:(t -> Stanza.t -> 'acc -> 'acc) -> 'acc
+
+module Memo_fold : sig
+  val fold_stanzas :
+       t list
+    -> init:'acc
+    -> f:(t -> Stanza.t -> 'acc -> 'acc Memo.t)
+    -> 'acc Memo.t
 end

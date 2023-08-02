@@ -1,9 +1,8 @@
-open! Dune_engine
-open Stdune
+open Import
 
-let valid_format_doc = Section.valid_format_doc
+let valid_format_doc = Site.valid_format_doc
 
-include Section.Modulelike (struct
+include Site.Modulelike (struct
   type t = string
 
   let description = "module name"
@@ -14,6 +13,8 @@ include Section.Modulelike (struct
 
   let make s = String.capitalize s
 end)
+
+let equal = String.equal
 
 let compare = String.compare
 
@@ -30,9 +31,11 @@ module Set = struct
 end
 
 module Map = String.Map
+module Map_traversals = Memo.Make_map_traversals (Map)
 module Infix = Comparator.Operators (String)
 
-let of_local_lib_name s = of_string (Lib_name.Local.to_string s)
+let of_local_lib_name (loc, s) =
+  parse_string_exn (loc, Lib_name.Local.to_string s)
 
 let to_local_lib_name s = Lib_name.Local.of_string s
 
@@ -74,6 +77,8 @@ module Unique = struct
 
   include T
 
+  let equal x y = Ordering.is_eq (compare x y)
+
   (* We make sure that obj's start with a lowercase letter to make it harder to
      confuse them with a proper module name *)
   let of_name_assuming_needs_no_mangling name = String.uncapitalize_ascii name
@@ -88,6 +93,8 @@ module Unique = struct
   let encode = Dune_lang.Encoder.string
 
   let of_string s = of_name_assuming_needs_no_mangling (of_string s)
+
+  let to_string s = s
 
   let decode =
     let open Dune_lang.Decoder in
@@ -110,7 +117,38 @@ module Unique = struct
 
   module Map = Map
   module Set = Set
+  module Map_traversals = Map_traversals
 end
 
-let wrap t ~with_ =
-  sprintf "%s__%s" (Unique.of_name_assuming_needs_no_mangling with_) t
+module Path = struct
+  module T = struct
+    type nonrec t = t list
+
+    let to_dyn = Dyn.list to_dyn
+
+    let compare = List.compare ~compare
+
+    let to_string t = List.map ~f:to_string t |> String.concat ~sep:"."
+  end
+
+  include T
+
+  let equal x y = compare x y |> Ordering.is_eq
+
+  let uncapitalize s = to_string s |> String.uncapitalize
+
+  module C = Comparable.Make (T)
+  module Set = C.Set
+  module Map = C.Map
+
+  let wrap path =
+    Unique.of_name_assuming_needs_no_mangling @@ String.concat ~sep:"__" path
+
+  let append_double_underscore t = t @ [ "" ]
+
+  let encode (t : t) = List.map t ~f:encode
+
+  let decode = Dune_lang.Decoder.(repeat decode)
+end
+
+let wrap t ~with_ = Path.wrap (t :: with_)

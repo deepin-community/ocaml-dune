@@ -1,12 +1,29 @@
   $ dune build @check
 
+  $ ocamlc_where="$(ocamlc -where)"
+  $ export BUILD_PATH_PREFIX_MAP="/OCAMLC_WHERE=$ocamlc_where:$BUILD_PATH_PREFIX_MAP"
+
 We dump the config for Foo and Bar modules but the pp.exe preprocessor
 should appear only once since only Foo is using it.
 
-  $ dune ocaml-merlin --dump-config=$(pwd) |
-  > sed 's#'$(opam config var prefix)'#OPAM_PREFIX#'
+  $ dune ocaml merlin dump-config $PWD
+  Bar
+  ((STDLIB /OCAMLC_WHERE)
+   (EXCLUDE_QUERY_DIR)
+   (B
+    $TESTCASE_ROOT/_build/default/.foo.objs/byte)
+   (S
+    $TESTCASE_ROOT)
+   (FLG
+    (-w
+     @1..3@5..28@30..39@43@46..47@49..57@61..62-40
+     -strict-sequence
+     -strict-formats
+     -short-paths
+     -keep-locs
+     -g)))
   Foo
-  ((STDLIB OPAM_PREFIX/lib/ocaml)
+  ((STDLIB /OCAMLC_WHERE)
    (EXCLUDE_QUERY_DIR)
    (B
     $TESTCASE_ROOT/_build/default/.foo.objs/byte)
@@ -21,18 +38,5 @@ should appear only once since only Foo is using it.
      -strict-sequence
      -strict-formats
      -short-paths
-     -keep-locs)))
-  Bar
-  ((STDLIB OPAM_PREFIX/lib/ocaml)
-   (EXCLUDE_QUERY_DIR)
-   (B
-    $TESTCASE_ROOT/_build/default/.foo.objs/byte)
-   (S
-    $TESTCASE_ROOT)
-   (FLG
-    (-w
-     @1..3@5..28@30..39@43@46..47@49..57@61..62-40
-     -strict-sequence
-     -strict-formats
-     -short-paths
-     -keep-locs)))
+     -keep-locs
+     -g)))

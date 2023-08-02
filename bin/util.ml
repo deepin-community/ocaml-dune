@@ -1,8 +1,8 @@
 open! Stdune
 module Context = Dune_rules.Context
 module Workspace = Dune_rules.Workspace
-module Dune_project = Dune_engine.Dune_project
-module Vcs = Dune_engine.Vcs
+module Dune_project = Dune_rules.Dune_project
+module Vcs = Dune_vcs.Vcs
 
 type checked =
   | In_build_dir of (Context.t * Path.Source.t)
@@ -45,5 +45,6 @@ let check_path contexts =
       match Dune_engine.Dpath.analyse_target path with
       | Other _ -> internal_path ()
       | Alias (_, _) -> internal_path ()
+      | Anonymous_action _ -> internal_path ()
       | Install (name, src) -> In_install_dir (context_exn name, src)
       | Regular (name, src) -> In_build_dir (context_exn name, src))

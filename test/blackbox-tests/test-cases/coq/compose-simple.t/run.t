@@ -1,16 +1,17 @@
-  $ dune build --display short --debug-dependency-path
-        coqdep a/a.v.d
-        coqdep b/b.v.d
-          coqc a/.a.aux,a/a.{glob,vo}
-          coqc b/.b.aux,b/b.{glob,vo}
-  lib: [
-    "_build/install/default/lib/csimple/META"
-    "_build/install/default/lib/csimple/dune-package"
-    "_build/install/default/lib/csimple/opam"
-  ]
-  lib_root: [
-    "_build/install/default/lib/coq/user-contrib/a/a.v" {"coq/user-contrib/a/a.v"}
-    "_build/install/default/lib/coq/user-contrib/a/a.vo" {"coq/user-contrib/a/a.vo"}
-    "_build/install/default/lib/coq/user-contrib/b/b.v" {"coq/user-contrib/b/b.v"}
-    "_build/install/default/lib/coq/user-contrib/b/b.vo" {"coq/user-contrib/b/b.vo"}
-  ]
+Testing a simple composition of theories. We have two theories A and B and B
+depends on A.
+
+  $ dune build
+  Warning: Coq Language Versions lower than 0.8 have been deprecated in Dune
+  3.8 and will be removed in an upcoming Dune version.
+
+We inspect the contents of the build directory.
+
+  $ ls _build/install/default/lib/coq/user-contrib/A/a.vo
+  _build/install/default/lib/coq/user-contrib/A/a.vo
+  $ ls _build/default/A/a.vo
+  _build/default/A/a.vo
+  $ ls _build/install/default/lib/coq/user-contrib/B/b.vo
+  _build/install/default/lib/coq/user-contrib/B/b.vo
+  $ ls _build/default/B/b.vo
+  _build/default/B/b.vo

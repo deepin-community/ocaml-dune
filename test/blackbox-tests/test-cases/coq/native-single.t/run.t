@@ -1,10 +1,13 @@
   $ dune build --profile=release --display short --debug-dependency-path @all
-        coqdep bar.v.d
-        coqdep foo.v.d
-          coqc .foo.aux,Nbasic_foo.{cmi,cmxs},foo.{glob,vo}
-          coqc .bar.aux,Nbasic_bar.{cmi,cmxs},bar.{glob,vo}
+  Warning: Coq Language Versions lower than 0.8 have been deprecated in Dune
+  3.8 and will be removed in an upcoming Dune version.
+        coqdep .basic.theory.d
+          coqc Nbasic_foo.{cmi,cmxs},foo.{glob,vo}
+          coqc Nbasic_bar.{cmi,cmxs},bar.{glob,vo}
 
   $ dune build --profile=release --debug-dependency-path @default
+  Warning: Coq Language Versions lower than 0.8 have been deprecated in Dune
+  3.8 and will be removed in an upcoming Dune version.
   lib: [
     "_build/install/default/lib/base/META"
     "_build/install/default/lib/base/dune-package"

@@ -1,8 +1,7 @@
 (** Extra information required to generate rules for virtual library
     implementations *)
-open! Dune_engine
 
-open Stdune
+open Import
 
 type t
 
@@ -29,4 +28,4 @@ val vlib_stubs_o_files : t option -> Path.t list
 
 val impl_cm_kind : t -> Cm_kind.t
 
-val vlib_obj_map : t -> Module.t Module_name.Unique.Map.t
+val vlib_obj_map : t -> Modules.Sourced_module.t Module_name.Unique.Map.t

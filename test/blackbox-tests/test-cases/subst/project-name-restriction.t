@@ -29,6 +29,6 @@ doesn't verify that this is the case
   [1]
 
   $ cat file.ml
-  let name = "dune"
-  let authors = "Jane Street Group, LLC <opensource@janestreet.com>"
-  let version = "2.9.1"
+  let name = "%%NAME%%"
+  let authors = "%%PKG_AUTHORS%%"
+  let version = "%%VERSION%%"

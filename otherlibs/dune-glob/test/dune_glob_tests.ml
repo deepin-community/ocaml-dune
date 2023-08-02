@@ -5,12 +5,7 @@ let printf = Printf.printf
 
 let test glob s ~expect =
   let res = Glob.test glob s in
-  let status =
-    if res = expect then
-      "pass"
-    else
-      "fail"
-  in
+  let status = if res = expect then "pass" else "fail" in
   printf "[%s] %S matches %S == %b" status (Glob.to_string glob) s res
 
 let%expect_test _ =
@@ -72,3 +67,12 @@ let%expect_test _ =
   [%expect {| [pass] "*" matches "foo.ml" == true |}];
   test glob "foo/" ~expect:false;
   [%expect {| [pass] "*" matches "foo/" == false |}]
+
+let%expect_test _ =
+  let glob = Glob.of_string "[!._]*" in
+  test glob ".foo" ~expect:false;
+  [%expect {| [pass] "[!._]*" matches ".foo" == false |}];
+  test glob "foo.ml" ~expect:true;
+  [%expect {| [pass] "[!._]*" matches "foo.ml" == true |}];
+  test glob "a" ~expect:true;
+  [%expect {| [pass] "[!._]*" matches "a" == true |}]

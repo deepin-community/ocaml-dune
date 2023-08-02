@@ -1,15 +1,6 @@
 (** Command line flags *)
 
-(** Print dependency path in case of error *)
-val debug_dep_path : bool ref
-
-(** Debug the findlib implementation *)
-val debug_findlib : bool ref
-
-(** The command line for "Hint: try: dune external-lib-deps ..." *)
-val external_lib_deps_hint : string list ref
-
-val external_lib_deps_mode : bool ref
+val report_errors_config : Report_errors_config.t ref
 
 (** Capture the output of sub-commands *)
 val capture_outputs : bool ref
@@ -17,8 +8,18 @@ val capture_outputs : bool ref
 (** Always print backtraces, to help debugging dune itself *)
 val debug_backtraces : bool -> unit
 
-(** Print debug info about artifact substitution *)
-val debug_artifact_substitution : bool ref
+(** Print debug info for cached digests *)
+val debug_digests : bool ref
+
+(** Print debug info for cached file-system operations *)
+val debug_fs_cache : bool ref
+
+(** Print debug info when loading rules in directories *)
+val debug_load_dir : bool ref
+
+(** Wait for the filesystem clock to advance rather than dropping cached digest
+    entries *)
+val wait_for_filesystem_clock : bool ref
 
 (** Command to use to diff things *)
 val diff_command : string option ref
@@ -35,23 +36,8 @@ val promote : Promote.t option ref
 (** Force re-running actions associated to aliases *)
 val force : bool ref
 
-(** Instead of terminating build after completion, watch for changes *)
-val watch : bool ref
-
-(** Do not print "Entering directory" messages *)
-val no_print_directory : bool ref
-
-(** Store original source directory in dune-package metadata *)
-val store_orig_src_dir : bool ref
-
 (** Always show full command on error *)
 val always_show_command_line : bool ref
 
-(** Promote the generated [<package>.install] files to the source tree *)
-val promote_install_files : bool ref
-
-(** Wether we are ignorimg rules with [(mode promote)] *)
-val ignore_promoted_rules : bool ref
-
-(** Packages passed by --only-packages or -p *)
-val only_packages : Package.Name.Set.t option ref
+(** The display mode *)
+val display : Display.t ref

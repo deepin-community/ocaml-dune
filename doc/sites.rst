@@ -1,11 +1,11 @@
 .. _sites:
 
 ***************************************
-How to load additional files at runtime
+How to Load Additional Files at Runtime
 ***************************************
 
 There are many ways for applications to load files at runtime and Dune provides
-a well tested, key-in-hand portable system for doing so. The Dune model works by
+a well-tested, key-in-hand portable system for doing so. The Dune model works by
 defining ``sites`` where files will be installed and looked up at runtime. At
 runtime, each site is associated to a list of directories which contain the
 files added in the site.
@@ -17,16 +17,16 @@ without warning. It must be explicitly enabled in the ``dune-project`` file with
 Sites
 =====
 
-Defining a site
+Defining a Site
 ---------------
 
 A site is defined in a package :ref:`package` in the ``dune-project`` file. It
 consists of a name and a :ref:`section<install>` (e.g ``lib``, ``share``,
 ``etc``) where the site will be installed as a sub-directory.
 
-.. code:: scheme
+.. code:: dune
 
-   (lang dune 2.9)
+   (lang dune 3.9)
    (using dune_site 0.1)
    (name mygui)
 
@@ -34,17 +34,17 @@ consists of a name and a :ref:`section<install>` (e.g ``lib``, ``share``,
     (name mygui)
     (sites (share themes)))
 
-Adding files to a site
+Adding Files to a Site 
 ----------------------
 
 Here the package ``mygui`` defines a site named ``themes`` that will be located
-in the section ``share``. This package can add files to this ``sites`` using the
+in the section ``share``. This package can add files to this ``site`` using the
 :ref:`install stanza<install>`:
 
-.. code:: scheme
+.. code:: dune
 
    (install
-    (section (site mygui themes))
+    (section (site (mygui themes)))
     (files
      (layout.css as default/layout.css)
      (ok.png  as default/ok.png)
@@ -54,7 +54,7 @@ Another package ``mygui_material_theme`` can install files inside ``mygui``
 directory for adding a new theme. Inside the scope of ``mygui_material_theme``
 the ``dune`` file contains:
 
-.. code:: scheme
+.. code:: dune
 
    (install
     (section (site mygui themes))
@@ -69,13 +69,13 @@ The package ``mygui`` must be present in the workspace or installed.
 
    Two files should not be installed by different packages at the same destination.
 
-Getting the locations of a site at runtime
+Getting the Locations of a Site at Runtime
 ------------------------------------------
 
 The executable ``mygui`` will be able to get the locations of the ``themes``
 site using the :ref:`generate sites module stanza<generate_sites_module>`
 
-.. code:: scheme
+.. code:: dune
 
    (executable
     (name mygui)
@@ -83,7 +83,7 @@ site using the :ref:`generate sites module stanza<generate_sites_module>`
     (libraries dune-site))
 
    (generate_sites_module
-    (name mysites)
+    (module mysites)
     (sites mygui))
 
 The generated module `mysites` depends on the library `dune-site` provided by
@@ -95,29 +95,28 @@ Then inside ``mygui.ml`` module the locations can be recovered and used:
 
    (** Locations of the site for the themes *)
    let themes_locations : string list = Mysites.Sites.themes
-
-   (** Merge the content of the directories in [dirs] *)
-   let rec readdirs dirs =
-     List.concat
-       (List.map
-          (fun dir -> Array.to_list (Sys.readdir dir))
-          (List.filter Sys.file_exists dirs))
-
-   (** Get the lists of the available themes  *)
-   let find_available_themes () : string list = lookup_dirs themes_locations
-
-   (** Lookup a file in the directories *)
-   let rec lookup_file filename = function
-     | [] -> raise Not_found
-     | dir::dirs ->
-        let filename' = Filename.concat dir filename in
-        if Sys.file_exists filename' then filename'
-        else lookup_file filename dirs
-
+   
+   (** Merge the contents of the directories in [dirs] *)
+   let lookup_dirs dirs =
+     List.filter Sys.file_exists dirs
+     |> List.map (fun dir -> Array.to_list (Sys.readdir dir))
+     |> List.concat
+   
+   (** Get the available themes *)
+   let find_available_themes () = lookup_dirs themes_locations
+   
+   (** [lookup_file name dirs] finds the first file called [name] in [dirs] *)
+   let lookup_file filename dirs =
+     List.find_map
+       (fun dir ->
+         let filename' = Filename.concat dir filename in
+         if Sys.file_exists filename' then Some filename' else None)
+       dirs
+   
    (** [lookup_theme_file theme file] get the [file] of the [theme] *)
    let lookup_theme_file file theme =
      lookup_file (Filename.concat theme file) themes_locations
-
+   
    let get_layout_css = lookup_theme_file "layout.css"
    let get_ok_ico = lookup_theme_file "ok.png"
    let get_ko_ico = lookup_theme_file "ko.png"
@@ -126,27 +125,27 @@ Then inside ``mygui.ml`` module the locations can be recovered and used:
 Tests
 -----
 
-During tests the files are copied into the sites through the dependency
+During tests, the files are copied into the sites through the dependency
 ``(package mygui)`` and ``(package mygui_material_theme)`` as for other files in
 install stanza.
 
 Installation
 ------------
 
-Installation is done simply with ``dune install``, however if one want to
-install this tool such that it is relocatable, one can use ``dune
+Installation is done simply with ``dune install``; however, if one wants to
+install this tool to make it relocatable, one can use ``dune
 install --relocatable --prefix $dir``. The files will be copied to the directory
 ``$dir`` but the binary ``$dir/bin/mygui`` will find the site location relative
 to its location. So even if the directory ``$dir`` is moved,
 ``themes_locations`` will be correct.
 
-For installation trough opam, ``dune install`` must be invoked with the option
+For installation through opam, ``dune install`` must be invoked with the option
 ``--create-install-files`` which creates an install file ``<pkg>.install`` and
-copy the file that needs subtistution to an intermediary directory. The
-``<pkg>.opam`` file generated by dune :ref:`generate_opam_files` does the right
+copy the file that needs substitution to an intermediary directory. The
+``<pkg>.opam`` file generated by Dune :ref:`generate_opam_files` does the right
 invocation.
 
-Implementation details
+Implementation Details
 ----------------------
 
 The main difficulty for sites is that their directories are found at different
@@ -158,22 +157,22 @@ locations at different times:
   package the location is at the same time in ``_build`` and in the install prefix
   of the second package.
 
-With the last example we see that the location of a site is not always a single
-directory, but can consist of a sequence of directories: ``["dir1" ; "dir2"]``.
+With the last example, we see that the location of a site is not always a single
+directory, but rather it can consist of a sequence of directories: ``["dir1" ; "dir2"]``.
 So a lookup must first look into `dir1`, then into `dir2`.
 
 .. _plugins:
 
-Plugins and dynamic loading of packages
+Plugins and Dynamic Loading of Packages
 ========================================
 
-Dune allows to define and load plugins without having to deal with specific
-compilation, installation directories, dependencies, or the Dynlink_ module.
+Dune allows you to define and load plugins without having to deal with specific
+compilation, installation directories, dependencies, or the ``Dynlink_`` module.
 
 To define a plugin:
 
 - The package defining the plugin interface must define a `site` where the
-  plugins must live. Traditionally, this is in ``(lib plugins)``, but it is just
+  plugins must live. Traditionally, this is in ``(lib plugins)``, but it's just
   a convention.
 
 - Define a library that each plugin must use to register itself (or otherwise
@@ -190,100 +189,146 @@ Example
 We demonstrate an example of the scheme above. The example consists of the
 following components:
 
-Inside package `c`,
+Inside package `app`:
 
-- A package `c`, containing the executable `c`, that we intend to extend with
-  plugins.
+- An executable `app`, that we intend to extend with plugins
 
-- A library `c.register` which defines the plugin registration interface.
+- A library `app.registration` which defines the plugin registration interface
 
-- A generated module `Sites` which can load available plugins at runtime.
+- A generated module `Sites` which can load available plugins at runtime
 
-- An executable `c` that will use the module `Sites` to load all the plugins.
+- An executable `app` that will use the module `Sites` to load all the plugins
 
-Inside package `b`, we declare plugin using the `c.register` api and the
+Inside package `Plugin1`, we declare a plugin using the `app.registration` api and the
 `plugin` stanza.
 
-Main executable (C)
+Directory structure
+^^^^^^^^^^^^^^^^^^^
+
+.. code::
+
+  .
+  ├── app.ml
+  ├── dune
+  ├── dune-project
+  ├── plugin
+  │   ├── dune
+  │   ├── dune-project
+  │   └── plugin1_impl.ml
+  └── registration.ml
+
+
+Main Executable (C)
 ^^^^^^^^^^^^^^^^^^^^^
 
-- ``dune-project`` file:
+- The ``dune-project`` file:
 
-.. code:: scheme
+.. code:: dune
 
-   (lang dune 2.9)
-   (using dune_site 0.1)
-   (name c)
-   (package
-    (name c)
+  (lang dune 3.9)
+  (using dune_site 0.1)
+  (name app)
+
+  (package
+    (name app)
     (sites (lib plugins)))
 
 
-- ``dune`` file:
+- The ``dune`` file:
 
-.. code:: scheme
+.. code:: dune
 
-   (executable
-    (public_name c)
-    (modules sites c)
-    (libraries c.register dune-site dune-site.plugins))
-
-   (library
-    (public_name c.register)
-    (name c_register)
-    (modules c_register))
-
-   (generate_sites_module
-    (module sites)
-    (plugins (c plugins)))
-
-The generated module `sites` depends here also on the library
-`dune-site.plugins` because the plugins optional field is requested.
-
-- The module ``c_register.ml`` of the library ``c.register``:
-
-.. code:: ocaml
-
-   let todo = Queue.create ()
-
-- The code of the executable ``c.ml``:
-
-.. code:: ocaml
-
-   (* load all the available plugins *)
-   let () = Sites.Plugins.Plugins.load_all ()
-   (* Execute the code registered by the plugins *)
-   let () = Queue.iter (fun f -> f ()) !C_register.todo
-
-One plugin (B)
-^^^^^^^^^^^^^^
-
-- ``dune-project`` file:
-
-.. code:: scheme
-
-   (lang dune 2.9)
-   (using dune_site 0.1)
-   (name b)
-
-- ``dune`` file:
-
-.. code:: scheme
+  (executable
+    (public_name app)
+    (modules sites app)
+    (libraries app.register dune-site dune-site.plugins))
 
   (library
-   (public_name b)
-   (libraries c.register))
+    (public_name app.register)
+    (name registration)
+    (modules registration))
 
-  (plugin
-   (name b)
-   (libraries b)
-   (site (c plugins)))
+  (generate_sites_module
+  (module sites)
+  (plugins (app plugins)))
 
-- The code of the plugin ``b.ml``:
+The generated module `sites` depends here also on the library
+`dune-site.plugins` because the `plugins` optional field is requested.
+
+If the executable being created is an OCaml toplevel, then the
+``libraries`` stanza needs to also include the ``dune-site.toplevel``
+library.  This causes the loading to use the toplevel's normal loading
+mechanism rather than ``Dynload.loadfile`` (which is not allowed in
+toplevels).
+
+- The module ``registration.ml`` of the library ``app.registration``:
 
 .. code:: ocaml
 
-   let () =
-     Queue.add (fun () -> print_endline "B is doing something") C_register.todo
+  let todo : (unit -> unit) Queue.t = Queue.create ()
+
+- The code of the executable ``app.ml``:
+
+.. code:: ocaml
+
+  (* load all the available plugins *)
+  let () = Sites.Plugins.Plugins.load_all ()
+
+  let () = print_endline "Main app starts..."
+  (* Execute the code registered by the plugins *)
+  let () = Queue.iter (fun f -> f ()) Registration.todo
+
+The Plugin "plugin1"
+^^^^^^^^^^^^^^^^^^^^
+
+- The ``plugin/dune-project`` file:
+
+.. code:: dune
+
+  (lang dune 3.9)
+  (using dune_site 0.1)
+
+  (generate_opam_files true)
+
+  (package
+    (name plugin1))
+
+
+- The ``plugin/dune`` file:
+
+.. code:: dune
+
+  (library
+    (public_name plugin1.plugin1_impl)
+    (name plugin1_impl)
+    (modules plugin1_impl)
+    (libraries app.register))
+
+  (plugin
+    (name plugin1)
+    (libraries plugin1.plugin1_impl)
+    (site (app plugins)))
+
+
+
+- The code of the plugin ``plugin/plugin1_impl.ml``:
+
+.. code:: ocaml
+
+  let () =
+    print_endline "Registration of Plugin1";
+    Queue.add (fun () -> print_endline "Plugin1 is doing something...") Registration.todo
+
+Running the Example
+^^^^^^^^^^^^^^^^^^^
+
+.. code::
+
+  $ dune build @install && dune exec ./app.exe
+  Registration of Plugin1
+  Main app starts...
+  Plugin1 is doing something...
+
+
 
 .. _Dynlink: https://caml.inria.fr/pub/docs/manual-ocaml/libref/Dynlink.html

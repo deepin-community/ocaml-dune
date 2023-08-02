@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=bcf425c65184eef6a8306f33b76c935e67620c77
+version=07eb8988452ad51a09d0ab7379d73a87674aba6e
 
 set -e -o pipefail
 
@@ -12,7 +12,7 @@ mkdir -p csexp/src
 
 (
     cd $TMP
-    git clone https://github.com/diml/csexp.git
+    git clone https://github.com/ocaml-dune/csexp.git
     cd csexp
     git checkout $version
 )
@@ -20,6 +20,7 @@ mkdir -p csexp/src
 SRC=$TMP/csexp
 
 cp -v $SRC/src/csexp.{ml,mli} csexp/src
+cp -v $SRC/LICENSE.md csexp/
 
 git checkout csexp/src/dune
 git add -A .

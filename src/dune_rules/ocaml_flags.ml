@@ -1,7 +1,5 @@
-open! Dune_engine
-open! Stdune
 open Import
-open Build.O
+open Action_builder.O
 
 let default_ocamlc_flags = [ "-g" ]
 
@@ -11,38 +9,52 @@ let dev_mode_warnings =
   (* New warnings should be introduced here *)
   let all =
     Int.Set.diff
-      (Int.Set.of_list (List.init 62 ~f:succ))
-      (Int.Set.of_list [ 4; 29; 40; 41; 42; 44; 45; 48; 58; 59; 60 ])
+      (* TODO update this list once OCaml versions are out *)
+      (Int.Set.of_list (List.init 70 ~f:succ))
+      (Int.Set.of_list
+         [ 4
+         ; 29
+         ; 40
+         ; 41
+         ; 42
+         ; 44
+         ; 45
+         ; 48
+         ; 58
+         ; 59
+         ; 60
+         ; 63
+         ; 64
+         ; 65
+         ; 66
+         ; 67
+         ; 68
+         ; 69
+         ; 70
+         ])
   in
   let warnings_range ws =
     let wrange_to_flag (x, y) =
-      if x = y then
-        sprintf "@%d" x
-      else
-        sprintf "@%d..%d" x y
+      if x = y then sprintf "@%d" x else sprintf "@%d..%d" x y
     in
-    let acc, last_range =
-      Int.Set.fold ws ~init:([], None) ~f:(fun x (acc, last_range) ->
-          match last_range with
-          | None ->
-            assert (acc = []);
-            ([], Some (x, x))
-          | Some (l, u) ->
-            if succ u = x then
-              (acc, Some (l, succ u))
-            else
-              (wrange_to_flag (l, u) :: acc, Some (x, x)))
-    in
-    let acc =
-      match last_range with
-      | None -> acc
-      | Some (x, y) -> wrange_to_flag (x, y) :: acc
-    in
-    List.rev acc |> String.concat ~sep:""
+    Int.Set.fold ws ~init:[] ~f:(fun x acc ->
+        match acc with
+        | [] -> [ (x, x) ]
+        | (l, u) :: acc when succ u = x -> (l, x) :: acc
+        | _ -> (x, x) :: acc)
+    |> List.rev_map ~f:wrange_to_flag
+    |> String.concat ~sep:""
   in
-  fun ~dune_version:_ -> warnings_range all
+  let pre_3_3 = lazy (warnings_range all) in
+  let post_3_3 =
+    lazy (warnings_range (Int.Set.union all (Int.Set.of_list [ 67; 69 ])))
+  in
+  fun ~dune_version ->
+    if dune_version >= (3, 3) then Lazy.force post_3_3 else Lazy.force pre_3_3
 
 let vendored_warnings = [ "-w"; "-a" ]
+
+let vendored_alerts = [ "-alert"; "-all" ]
 
 let default_warnings = "-40"
 
@@ -55,16 +67,15 @@ let default_flags ~dune_version ~profile =
     ; "-short-paths"
     ; "-keep-locs"
     ]
-  else
-    [ "-w"; default_warnings ]
+  else [ "-w"; default_warnings ]
 
 type 'a t' =
   { common : 'a
-  ; specific : 'a Mode.Dict.t
+  ; specific : 'a Lib_mode.Map.t
   }
 
 let equal f { common; specific } t =
-  f common t.common && Mode.Dict.equal f specific t.specific
+  f common t.common && Lib_mode.Map.equal f specific t.specific
 
 module Spec = struct
   type t = Ordered_set_lang.Unexpanded.t t'
@@ -73,7 +84,7 @@ module Spec = struct
 
   let standard =
     { common = Ordered_set_lang.Unexpanded.standard
-    ; specific = Mode.Dict.make_both Ordered_set_lang.Unexpanded.standard
+    ; specific = Lib_mode.Map.make_all Ordered_set_lang.Unexpanded.standard
     }
 
   let decode =
@@ -81,39 +92,70 @@ module Spec = struct
     let field_oslu = Ordered_set_lang.Unexpanded.field in
     let+ common = field_oslu "flags"
     and+ byte = field_oslu "ocamlc_flags"
-    and+ native = field_oslu "ocamlopt_flags" in
-    let specific = Mode.Dict.make ~native ~byte in
+    and+ native = field_oslu "ocamlopt_flags"
+    and+ melange =
+      field_oslu
+        ~check:(Dune_lang.Syntax.since Melange_stanzas.syntax (0, 1))
+        "melange.compile_flags"
+    in
+    let specific = Lib_mode.Map.make ~byte ~native ~melange in
     { common; specific }
 end
 
-type t = string list Build.t t'
+type t = string list Action_builder.t t'
 
 let empty =
-  let build = Build.return [] in
-  { common = build; specific = Mode.Dict.make_both build }
+  let build = Action_builder.return [] in
+  { common = build; specific = Lib_mode.Map.make_all build }
 
-let of_list l = { empty with common = Build.return l }
+let of_list l = { empty with common = Action_builder.return l }
 
 let default ~dune_version ~profile =
-  { common = Build.return (default_flags ~dune_version ~profile)
+  { common = Action_builder.return (default_flags ~dune_version ~profile)
   ; specific =
-      { byte = Build.return default_ocamlc_flags
-      ; native = Build.return default_ocamlopt_flags
+      { ocaml =
+          { byte = Action_builder.return default_ocamlc_flags
+          ; native = Action_builder.return default_ocamlopt_flags
+          }
+      ; melange = Action_builder.return default_ocamlc_flags
       }
   }
 
 let make ~spec ~default ~eval =
-  let f name x standard = Build.memoize name (eval x ~standard) in
+  let f name x standard =
+    Action_builder.memoize ~cutoff:(List.equal String.equal) name
+      (eval x ~standard)
+  in
   { common = f "common flags" spec.common default.common
   ; specific =
-      { byte = f "ocamlc flags" spec.specific.byte default.specific.byte
-      ; native = f "ocamlopt flags" spec.specific.native default.specific.native
+      { ocaml =
+          { byte =
+              f "ocamlc flags" spec.specific.ocaml.byte
+                default.specific.ocaml.byte
+          ; native =
+              f "ocamlopt flags" spec.specific.ocaml.native
+                default.specific.ocaml.native
+          }
+      ; melange =
+          f "melange compile_flags" spec.specific.melange
+            default.specific.melange
+      }
+  }
+
+let make_with_melange ~melange ~default ~eval =
+  { common = default.common
+  ; specific =
+      { ocaml = default.specific.ocaml
+      ; melange =
+          Action_builder.memoize ~cutoff:(List.equal String.equal)
+            "melange compile_flags"
+            (eval melange ~standard:default.specific.melange)
       }
   }
 
 let get t mode =
   let+ common = t.common
-  and+ specific = Mode.Dict.get t.specific mode in
+  and+ specific = Lib_mode.Map.get t.specific mode in
   common @ specific
 
 let map_common t ~f =
@@ -125,16 +167,19 @@ let map_common t ~f =
 
 let append_common t flags = map_common t ~f:(fun l -> l @ flags)
 
-let prepend_common flags t = map_common t ~f:(fun l -> flags @ l)
-
 let with_vendored_warnings t = append_common t vendored_warnings
 
-let common t = t.common
+let with_vendored_alerts t = append_common t vendored_alerts
 
 let dump t =
   let+ common = t.common
-  and+ byte = t.specific.byte
-  and+ native = t.specific.native in
+  and+ byte = t.specific.ocaml.byte
+  and+ native = t.specific.ocaml.native
+  and+ melange = t.specific.melange in
   List.map
     ~f:Dune_lang.Encoder.(pair string (list string))
-    [ ("flags", common); ("ocamlc_flags", byte); ("ocamlopt_flags", native) ]
+    [ ("flags", common)
+    ; ("ocamlc_flags", byte)
+    ; ("ocamlopt_flags", native)
+    ; ("melange.compile_flags", melange)
+    ]

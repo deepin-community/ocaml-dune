@@ -1,7 +1,6 @@
 (** MDX integration *)
-open! Dune_engine
 
-open Stdune
+open Import
 
 type t
 
@@ -9,6 +8,11 @@ val enabled_if : t -> Blang.t
 
 type Stanza.t += T of t
 
-(** Genrates the rules to handle the given mdx stanza *)
+(** Generates the rules to handle the given mdx stanza *)
 val gen_rules :
-  t -> sctx:Super_context.t -> dir:Path.Build.t -> expander:Expander.t -> unit
+     t
+  -> sctx:Super_context.t
+  -> dir:Path.Build.t
+  -> scope:Scope.t
+  -> expander:Expander.t
+  -> unit Memo.t

@@ -1,5 +1,4 @@
-open! Dune_engine
-open Stdune
+open Import
 
 val drop_source_extension :
      string
@@ -12,7 +11,7 @@ val possible_sources :
   -> dune_version:Dune_lang.Syntax.Version.t
   -> string list
 
-(* CR-soon cwong: I'd really prefer to keep the convension that these functions
+(* CR-soon cwong: I'd really prefer to keep the convention that these functions
    are spelled [Foreign_language.encode] and [Foreign_language.decode], but due
    to some organizational reasons (see the rant at the top of
    [foreign_language.mli]), these need to be here instead, as they cannot reside
@@ -42,7 +41,7 @@ module Archive : sig
 
     val to_string : t -> string
 
-    val path : dir:Path.Build.t -> t -> Path.Build.t
+    val path : dir:Path.Build.t -> mode:Mode.Select.t -> t -> Path.Build.t
 
     val decode : t Dune_lang.Decoder.t
 
@@ -50,24 +49,44 @@ module Archive : sig
 
     val lib_file_prefix : string
 
-    val lib_file : t -> dir:Path.Build.t -> ext_lib:string -> Path.Build.t
+    val lib_file :
+         t
+      -> dir:Path.Build.t
+      -> ext_lib:Filename.Extension.t
+      -> mode:Mode.Select.t
+      -> Path.Build.t
 
-    val dll_file : t -> dir:Path.Build.t -> ext_dll:string -> Path.Build.t
+    val dll_file :
+         t
+      -> dir:Path.Build.t
+      -> ext_dll:Filename.Extension.t
+      -> mode:Mode.Select.t
+      -> Path.Build.t
   end
 
   type t
 
   val dir_path : dir:Path.Build.t -> t -> Path.Build.t
 
-  val name : t -> Name.t
+  val name : mode:Mode.Select.t -> t -> Name.t
 
   val stubs : string -> t
 
   val decode : t Dune_lang.Decoder.t
 
-  val lib_file : archive:t -> dir:Path.Build.t -> ext_lib:string -> Path.Build.t
+  val lib_file :
+       archive:t
+    -> dir:Path.Build.t
+    -> ext_lib:Filename.Extension.t
+    -> mode:Mode.Select.t
+    -> Path.Build.t
 
-  val dll_file : archive:t -> dir:Path.Build.t -> ext_dll:string -> Path.Build.t
+  val dll_file :
+       archive:t
+    -> dir:Path.Build.t
+    -> ext_dll:Filename.Extension.t
+    -> mode:Mode.Select.t
+    -> Path.Build.t
 end
 
 (** A type of foreign library "stubs", which includes all fields of the
@@ -78,17 +97,28 @@ module Stubs : sig
   (* Foreign sources can depend on a directly specified directory [Dir] or on a
      source directory of a library [Lib]. *)
   module Include_dir : sig
-    type t =
-      | Dir of String_with_vars.t
-      | Lib of Loc.t * Lib_name.t
+    module Without_include : sig
+      type t =
+        | Dir of String_with_vars.t
+        | Lib of Loc.t * Lib_name.t
+    end
+
+    type t
 
     val decode : t Dune_lang.Decoder.t
+
+    val expand_include :
+         t
+      -> expand_str:(String_with_vars.t -> string Memo.t)
+      -> dir:Path.Build.t
+      -> Without_include.t list Memo.t
   end
 
   type t =
     { loc : Loc.t
     ; language : Foreign_language.t
     ; names : Ordered_set_lang.t
+    ; mode : Mode.Select.t
     ; flags : Ordered_set_lang.Unexpanded.t
     ; include_dirs : Include_dir.t list
     ; extra_deps : Dep_conf.t list
@@ -99,10 +129,13 @@ module Stubs : sig
        loc:Loc.t
     -> language:Foreign_language.t
     -> names:Ordered_set_lang.t
+    -> mode:Mode.Select.t
     -> flags:Ordered_set_lang.Unexpanded.t
     -> t
 
   val decode : t Dune_lang.Decoder.t
+
+  val is_mode_dependent : t -> bool
 end
 
 (** Foreign libraries.
@@ -139,24 +172,33 @@ module Library : sig
 end
 
 (** A foreign source file that has a [path] and all information of the
-    corresponnding [Foreign.Stubs.t] declaration. *)
+    corresponding [Foreign.Stubs.t] declaration. *)
 module Source : sig
-  type t =
-    { stubs : Stubs.t
+  type kind =
+    | Stubs of Stubs.t
+    | Ctypes of Ctypes_field.t
+
+  type t = private
+    { kind : kind
     ; path : Path.Build.t
     }
 
   val language : t -> Foreign_language.t
 
-  val flags : t -> Ordered_set_lang.Unexpanded.t
+  val mode : t -> Mode.Select.t
 
   val path : t -> Path.Build.t
 
-  (* The name of the corresponding object file; for example, [name] for a source
-     file [some/path/name.cpp]. *)
-  val object_name : t -> string
+  (** The name of the corresponding object file; for example, [name] for a
+      source file [some/path/name.cpp] of [name_mode] if the stub is
+      mode-specific. *)
+  val object_name : t -> Filename.t
 
-  val make : stubs:Stubs.t -> path:Path.Build.t -> t
+  (** The name of the corresponding object file without the mode suffix. This is
+      useful for messages where the internally suffixed name would be confusing. *)
+  val user_object_name : t -> Filename.t
+
+  val make : kind -> path:Path.Build.t -> t
 end
 
 (** A map from object names to the corresponding sources. *)
@@ -164,7 +206,9 @@ module Sources : sig
   type t = (Loc.t * Source.t) String.Map.t
 
   val object_files :
-    t -> dir:Path.Build.t -> ext_obj:string -> Path.Build.t list
+    t -> dir:Path.Build.t -> ext_obj:Filename.Extension.t -> Path.Build.t list
+
+  val has_cxx_sources : t -> bool
 
   (** A map from object names to lists of possible language/path combinations. *)
   module Unresolved : sig
@@ -177,7 +221,21 @@ module Sources : sig
     val load :
          dune_version:Dune_lang.Syntax.Version.t
       -> dir:Path.Build.t
-      -> files:String.Set.t
+      -> files:Filename.Set.t
       -> t
   end
+end
+
+(** For the [(foreign_objects ...)] field.*)
+module Objects : sig
+  type t
+
+  val empty : t
+
+  val is_empty : t -> bool
+
+  val decode : t Dune_lang.Decoder.t
+
+  val build_paths :
+    t -> ext_obj:Filename.Extension.t -> dir:Path.Build.t -> Path.t list
 end

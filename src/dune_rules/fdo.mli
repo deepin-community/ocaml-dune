@@ -1,7 +1,5 @@
 (** Integration with feedback-directed optimizations using ocamlfdo. *)
-open! Dune_engine
-
-open Stdune
+open Import
 
 type phase =
   | All
@@ -18,12 +16,12 @@ val c_flags : Context.t -> string list
 
 val cxx_flags : Context.t -> string list
 
-val opt_rule : Compilation_context.t -> Module.t -> unit
+val opt_rule : Compilation_context.t -> Module.t -> unit Memo.t
 
 module Linker_script : sig
   type t
 
   val create : Compilation_context.t -> Path.t -> t
 
-  val flags : t -> Command.Args.dynamic Command.Args.t
+  val flags : t -> _ Command.Args.t Memo.t
 end

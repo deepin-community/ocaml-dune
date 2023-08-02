@@ -1,17 +1,8 @@
-open Stdune
+open Import
 
 module Name : sig
-  type t
-
-  val decode : t Dune_lang.Decoder.t
-
-  val of_string : string -> t
-
-  val parse_string_exn : Loc.t * string -> t
-
-  val to_string : t -> string
-
-  val to_dyn : t -> Dyn.t
+  include
+    module type of Dune_util.Alias_name with type t = Dune_util.Alias_name.t
 
   val default : t
 
@@ -19,13 +10,13 @@ module Name : sig
 
   val install : t
 
+  val fmt : t
+
   val all : t
 
   val parse_local_path : Loc.t * Path.Local.t -> Path.Local.t * t
 
-  module Map : Map.S with type key = t
-
-  module Set : Set.S with type elt = t
+  include Comparable_intf.S with type key := t
 end
 
 type t
@@ -38,16 +29,16 @@ val compare : t -> t -> Ordering.t
 
 val make : Name.t -> dir:Path.Build.t -> t
 
+val register_as_standard : Name.t -> unit
+
 (** The following always holds: [make (name t) ~dir:(dir t) = t] *)
 val name : t -> Name.t
 
 val dir : t -> Path.Build.t
 
-val stamp_file_dir : t -> Path.Build.t
-
 val to_dyn : t -> Dyn.t
 
-val encode : t Dune_lang.Encoder.t
+val encode : t Dune_sexp.Encoder.t
 
 val of_user_written_path : loc:Loc.t -> Path.t -> t
 
@@ -71,9 +62,6 @@ val check : dir:Path.Build.t -> t
 
 val fmt : dir:Path.Build.t -> t
 
-(** Return the underlying stamp file *)
-val stamp_file : t -> Path.Build.t
-
 val is_standard : Name.t -> bool
 
-val suffix : string
+val describe : ?loc:Loc.t -> t -> _ Pp.t
