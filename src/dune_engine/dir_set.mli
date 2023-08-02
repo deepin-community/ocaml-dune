@@ -1,6 +1,6 @@
 (** Potentially infinite sets of directories *)
 
-open! Stdune
+open Import
 
 (** Type of potentially infinite sets of directories. Not all sets can be
     represented, only ones that can be efficiently inspected. *)
@@ -20,7 +20,9 @@ val universal : 'w t
 
 (** [trivial b] is such that for all path [p]:
 
-    {[ mem (trivial b) p = b ]}
+    {[
+      mem (trivial b) p = b
+    ]}
 
     i.e. [trivial false] is [empty] and [trivial true] is [universal]. *)
 val trivial : bool -> 'w t
@@ -41,7 +43,7 @@ val descend : 'w t -> string -> Path.Local.w t
 
     Sets of directories for which [exceptions t] is not finite cannot be
     represented by this module. *)
-val exceptions : 'w t -> Path.Local.w t String.Map.t
+val exceptions : 'w t -> Path.Local.w t Filename.Map.t
 
 (** Default membership value for paths that are neither empty nor part of the
     exceptions. I.e. for all non-empty path [p] whose first component is not in
@@ -80,7 +82,7 @@ val forget_root : 'w t -> Path.Unspecified.w t
 
 type toplevel_subdirs =
   | Infinite
-  | Finite of String.Set.t
+  | Finite of Filename.Set.t
 
 val toplevel_subdirs : 'w t -> toplevel_subdirs
 

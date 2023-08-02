@@ -1,14 +1,14 @@
 (** Workspaces definitions *)
-open! Dune_engine
 
-open! Stdune
-open! Import
+open Import
 
 module Context : sig
   module Target : sig
     type t =
       | Native
       | Named of Context_name.t
+
+    val equal : t -> t -> bool
   end
 
   module Common : sig
@@ -45,7 +45,11 @@ module Context : sig
   end
 
   module Default : sig
-    type t = Common.t
+    type t =
+      { base : Common.t
+      ; lock : Path.Source.t option
+      ; version_preference : Dune_pkg.Opam.Version_preference.t option
+      }
   end
 
   type t =
@@ -59,15 +63,25 @@ module Context : sig
   val env : t -> Dune_env.Stanza.t
 
   val host_context : t -> Context_name.t option
+
+  val to_dyn : t -> Dyn.t
 end
 
 (** Representation of a workspace. The list of context is topologically sorted,
     i.e. a context always comes before the contexts where it is used as host
-    context. *)
+    context.
+
+    The various field aggregate all of, by order of precedence:
+
+    - the command line arguments
+    - the contents of the workspace file
+    - the contents of the user configuration file
+    - the default values *)
 type t = private
   { merlin_context : Context_name.t option
   ; contexts : Context.t list
   ; env : Dune_env.Stanza.t
+  ; config : Dune_config.t
   }
 
 val equal : t -> t -> bool
@@ -76,15 +90,33 @@ val to_dyn : t -> Dyn.t
 
 val hash : t -> int
 
-val init :
-     ?x:Context_name.t
-  -> ?profile:Profile.t
-  -> ?instrument_with:Lib_name.t list
-  -> ?workspace_file:Path.t
-  -> unit
-  -> unit
+module Clflags : sig
+  type t =
+    { x : Context_name.t option
+    ; profile : Profile.t option
+    ; instrument_with : Lib_name.t list option
+    ; workspace_file : Path.Outside_build_dir.t option
+    ; config_from_command_line : Dune_config.Partial.t
+    ; config_from_config_file : Dune_config.Partial.t
+    }
+
+  (** This must be called exactly once *)
+  val set : t -> unit
+end
 
 (** Default name of workspace files *)
-val filename : string
+val filename : Filename.t
 
-val workspace : unit -> t
+val workspace : unit -> t Memo.t
+
+(** Same as [workspace ()] except that if there are errors related to fields
+    other than the ones of [config], they are not reported. *)
+val workspace_config : unit -> Dune_config.t Memo.t
+
+(** Update the execution parameters according to what is written in the
+    [dune-workspace] file. *)
+val update_execution_parameters :
+  t -> Execution_parameters.t -> Execution_parameters.t
+
+(** All the build contexts defined in the workspace. *)
+val build_contexts : t -> Build_context.t list

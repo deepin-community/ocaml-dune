@@ -1,10 +1,9 @@
-open! Dune_engine
-open! Stdune
+open Import
 
 type t =
   { has_native : bool
-  ; ext_lib : string
-  ; ext_obj : string
+  ; ext_lib : Filename.Extension.t
+  ; ext_obj : Filename.Extension.t
   ; os_type : Ocaml_config.Os_type.t
   ; architecture : string
   ; system : string
@@ -13,44 +12,44 @@ type t =
   ; ext_dll : string
   ; stdlib_dir : Path.t
   ; ccomp_type : Ocaml_config.Ccomp_type.t
-  ; profile : Profile.t
   ; ocaml_version_string : string
-  ; ocaml_version : Ocaml_version.t
+  ; ocaml_version : Ocaml.Version.t
   ; instrument_with : Lib_name.t list
-  ; context_name : Context_name.t
   }
 
-let var_map =
-  [ ("architecture", fun t -> t.architecture)
-  ; ("system", fun t -> t.system)
-  ; ("model", fun t -> t.model)
-  ; ("os_type", fun t -> Ocaml_config.Os_type.to_string t.os_type)
-  ; ("ccomp_type", fun t -> Ocaml_config.Ccomp_type.to_string t.ccomp_type)
-  ; ("profile", fun t -> Profile.to_string t.profile)
-  ; ("ocaml_version", fun t -> t.ocaml_version_string)
-  ; ("context_name", fun t -> Context_name.to_string t.context_name)
+let allowed_in_enabled_if =
+  [ ("architecture", (1, 0))
+  ; ("system", (1, 0))
+  ; ("model", (1, 0))
+  ; ("os_type", (1, 0))
+  ; ("ccomp_type", (2, 0))
+  ; ("ocaml_version", (2, 5))
   ]
 
-let allowed_in_enabled_if =
-  List.map var_map ~f:(fun (var, _) ->
-      let min_version =
-        match var with
-        | "profile" -> (2, 5)
-        | "ccomp_type" -> (2, 0)
-        | "ocaml_version" -> (2, 5)
-        | "context_name" -> (2, 8)
-        | _ -> (1, 0)
-      in
-      (var, min_version))
-
-let get_for_enabled_if t ~var =
-  match List.assoc var_map var with
-  | Some f -> f t
-  | None ->
+let get_for_enabled_if t (pform : Pform.t) =
+  match pform with
+  | Var Architecture -> t.architecture
+  | Var System -> t.system
+  | Var Model -> t.model
+  | Var Os_type -> Ocaml_config.Os_type.to_string t.os_type
+  | Var Ccomp_type -> Ocaml_config.Ccomp_type.to_string t.ccomp_type
+  | Var Ocaml_version -> t.ocaml_version_string
+  | _ ->
     Code_error.raise "Lib_config.get_for_enabled_if: var not allowed"
-      [ ("var", Dyn.Encoder.string var) ]
+      [ ("var", Pform.to_dyn pform) ]
 
 let linker_can_create_empty_archives t =
   match t.ccomp_type with
   | Msvc -> false
   | Other _ -> true
+
+let hash = Poly.hash
+
+let equal = Poly.equal
+
+let to_dyn = Dyn.opaque
+
+let cc_g t =
+  match t.ccomp_type with
+  | Msvc -> []
+  | Other _ -> [ "-g" ]

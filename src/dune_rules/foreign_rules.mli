@@ -1,5 +1,3 @@
-open! Dune_engine
-open! Stdune
 open Import
 
 val build_o_files :
@@ -7,6 +5,6 @@ val build_o_files :
   -> foreign_sources:Foreign.Sources.t
   -> dir:Path.Build.t
   -> expander:Expander.t
-  -> requires:Lib.L.t Or_exn.t
+  -> requires:Lib.t list Resolve.t
   -> dir_contents:Dir_contents.t
-  -> Path.Build.t list
+  -> Path.t Mode.Map.Multi.t Memo.t

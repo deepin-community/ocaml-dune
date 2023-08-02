@@ -18,10 +18,10 @@ prefixed and unprefixed modules are built.
 
   $ ./sdune clean
   $ ./sdune build --display short @t1
-      ocamldep .a1.objs/a.ml.d
+      ocamldep .a1.objs/a1__A.impl.d
         ocamlc .b.eobjs/byte/dune__exe__B.{cmi,cmo,cmt}
         ocamlc .c1.objs/byte/c.{cmi,cmo,cmt}
-      ocamldep .c2.objs/d.ml.d
+      ocamldep .c2.objs/c2__D.impl.d
         ocamlc .a1.objs/byte/a1.{cmi,cmo,cmt}
         ocamlc .c2.objs/byte/c2.{cmi,cmo,cmt}
         ocamlc .a1.objs/byte/a1__A.{cmi,cmo,cmt}
@@ -39,7 +39,7 @@ The next test tries to build a .cmi file (of a module in a wrapped library).
 
   $ ./sdune clean
   $ ./sdune build --display short @t2
-      ocamldep .a1.objs/a.ml.d
+      ocamldep .a1.objs/a1__A.impl.d
         ocamlc .a1.objs/byte/a1.{cmi,cmo,cmt}
         ocamlc .a1.objs/byte/a1__A.{cmi,cmo,cmt}
 
@@ -60,16 +60,17 @@ The next test tries to build a module that does not exist.
   > EOF
   $ ./sdune build --root ex1 @t
   Entering directory 'ex1'
-  File "dune", line 3, characters 9-17:
+  File "dune", line 3, characters 7-17:
   3 |  (deps %{cmo:foo}))
-               ^^^^^^^^
+             ^^^^^^^^^^
   Error: Module Foo does not exist.
+  Leaving directory 'ex1'
   [1]
 
 Command line version; note that the error message is slightly different.
 
   $ ./sdune build %{cmo:xxxx}
-  File "command line", line 1, characters 2-11:
+  File "command line", line 1, characters 0-11:
   Error: Module Xxxx does not exist.
   [1]
 
@@ -78,7 +79,7 @@ The next test builds a native .cmxa.
   $ ./sdune clean
   $ ./sdune build --display short @t4
         ocamlc .a1.objs/byte/a1.{cmi,cmo,cmt}
-      ocamldep .a1.objs/a.ml.d
+      ocamldep .a1.objs/a1__A.impl.d
       ocamlopt .a1.objs/native/a1.{cmx,o}
         ocamlc .a1.objs/byte/a1__A.{cmi,cmo,cmt}
       ocamlopt .a1.objs/native/a1__A.{cmx,o}
@@ -101,16 +102,17 @@ This test tries to build a non-existent .cma.
   > EOF
   $ ./sdune build --root ex2 @t
   Entering directory 'ex2'
-  File "dune", line 3, characters 9-17:
+  File "dune", line 3, characters 7-17:
   3 |  (deps %{cma:bar}))
-               ^^^^^^^^
+             ^^^^^^^^^^
   Error: Library bar does not exist.
+  Leaving directory 'ex2'
   [1]
 
 Command line version.
 
   $ ./sdune build %{cma:bar_}
-  File "command line", line 1, characters 2-11:
+  File "command line", line 1, characters 0-11:
   Error: Library bar_ does not exist.
   [1]
 
@@ -120,7 +122,7 @@ defined. The library is public in this case, but we use the local name.
   $ ./sdune clean
   $ ./sdune build --display short @t6
         ocamlc sub2/.bar2.objs/byte/bar2.{cmi,cmo,cmt}
-      ocamldep sub2/.bar2.objs/y2.ml.d
+      ocamldep sub2/.bar2.objs/bar2__Y2.impl.d
         ocamlc sub2/.bar2.objs/byte/bar2__Y2.{cmi,cmo,cmt}
         ocamlc sub2/bar2.cma
 
@@ -134,7 +136,7 @@ This test builds a .cmo in a subdirectory (same project).
 
   $ ./sdune clean
   $ ./sdune build --display short @t7
-      ocamldep sub/.bar.objs/x.ml.d
+      ocamldep sub/.bar.objs/bar__X.impl.d
         ocamlc sub/.bar.objs/byte/bar.{cmi,cmo,cmt}
         ocamlc sub/.bar.objs/byte/bar__X.{cmi,cmo,cmt}
 
@@ -149,7 +151,7 @@ private library.
 
   $ ./sdune clean
   $ ./sdune build --display short @t8
-      ocamldep sub3/.c1.objs/x.ml.d
+      ocamldep sub3/.c1.objs/c1__X.impl.d
         ocamlc sub3/.c1.objs/byte/c1.{cmi,cmo,cmt}
         ocamlc sub3/.c1.objs/byte/c1__X.{cmi,cmo,cmt}
 
@@ -165,7 +167,7 @@ project.
   $ ./sdune clean
   $ ./sdune build --display short @t9
         ocamlc sub3/.c1.objs/byte/c1.{cmi,cmo,cmt}
-      ocamldep sub3/.c1.objs/x.ml.d
+      ocamldep sub3/.c1.objs/c1__X.impl.d
         ocamlc sub3/.c1.objs/byte/c1__X.{cmi,cmo,cmt}
         ocamlc sub3/c1.cma
 
@@ -192,7 +194,7 @@ Command line version.
 This test checks error handling.
 
   $ ./sdune build %{cma:../x}
-  File "command line", line 1, characters 2-11:
+  File "command line", line 1, characters 0-11:
   Error: Library x does not exist.
   [1]
 
@@ -200,7 +202,7 @@ This test checks that everything still works if we invoke dune from a
 subdirectory.
 
   $ (cd sub && dune build --display short %{cmx:x})
-      ocamldep .bar.objs/x.ml.d
+      ocamldep .bar.objs/bar__X.impl.d
         ocamlc .bar.objs/byte/bar.{cmi,cmo,cmt}
         ocamlc .bar.objs/byte/bar__X.{cmi,cmo,cmt}
       ocamlopt .bar.objs/native/bar__X.{cmx,o}
@@ -209,23 +211,26 @@ The following test checks that the variables can be used in the (action) field
 of a (rule).
 
   $ ./sdune build --display short _build/default/my.cmxs
-      ocamldep .dummy.objs/x3.ml.d
         ocamlc .plugin.objs/byte/plugin.{cmi,cmo,cmt}
-      ocamldep .plugin.objs/x1.ml.d
-      ocamldep .plugin.objs/x2.ml.d
-        ocamlc .dummy.objs/byte/dummy.{cmi,cmo,cmt}
+      ocamldep .plugin.objs/plugin__X1.impl.d
+      ocamldep .plugin.objs/plugin__X2.impl.d
+      ocamldep .dummy.objs/dummy__X3.impl.d
       ocamlopt .plugin.objs/native/plugin.{cmx,o}
         ocamlc .plugin.objs/byte/plugin__X1.{cmi,cmo,cmt}
         ocamlc .plugin.objs/byte/plugin__X2.{cmi,cmo,cmt}
-        ocamlc .dummy.objs/byte/dummy__X3.{cmi,cmo,cmt}
+        ocamlc .dummy.objs/byte/dummy.{cmi,cmo,cmt}
       ocamlopt .plugin.objs/native/plugin__X1.{cmx,o}
       ocamlopt .plugin.objs/native/plugin__X2.{cmx,o}
-      ocamlopt .dummy.objs/native/dummy__X3.{cmx,o}
+        ocamlc .dummy.objs/byte/dummy__X3.{cmi,cmo,cmt}
       ocamlopt plugin.{a,cmxa}
+      ocamlopt .dummy.objs/native/dummy__X3.{cmx,o}
       ocamlopt my.cmxs
 
 The following (failing) test shows that the variables cannot yet be used in the (deps)
 field of a (rule).
+
+This test is no longer failing. It should fail because
+%{cmo:...} wasn't allowed in the deps field in (lang dune <3.0).
 
   $ mkdir deps-fail
   $ echo "(lang dune 2.1)" > deps-fail/dune-project
@@ -237,10 +242,11 @@ field of a (rule).
   > EOF
   $ ./sdune build --root deps-fail t
   Entering directory 'deps-fail'
-  File "dune", line 3, characters 9-16:
+  File "dune", line 3, characters 7-16:
   3 |  (deps %{cmo:x2})
-               ^^^^^^^
-  Error: %{cmo:..} isn't allowed in this position
+             ^^^^^^^^^
+  Error: Module X2 does not exist.
+  Leaving directory 'deps-fail'
   [1]
 
 The above restriction also applies to other stanzas. Any stanzas that introduces
@@ -251,8 +257,9 @@ new files for Dir_contents, for example copy_files:
   > EOF
   $ ./sdune build --root deps-fail t
   Entering directory 'deps-fail'
-  File "dune", line 1, characters 15-22:
+  File "dune", line 1, characters 13-22:
   1 | (copy_files "%{cmo:x2}")
-                     ^^^^^^^
-  Error: %{cmo:..} isn't allowed in this position
+                   ^^^^^^^^^
+  Error: %{cmo:..} isn't allowed in this position.
+  Leaving directory 'deps-fail'
   [1]

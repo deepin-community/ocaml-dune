@@ -1,4 +1,3 @@
-open Stdune
 open Import
 
 let config =
@@ -70,7 +69,7 @@ let config =
     ; `P
         {|Set the maximum number of jobs Dune might run in parallel.
            This can also be set from the command line via $(b,-j NUMBER).|}
-    ; `P {|The default for this value is 4.|}
+    ; `P {|The default for this value is the number of processors.|}
     ; `S "SANDBOXING"
     ; `P {|Syntax: $(b,\(sandboxing_preference MODE ...\))|}
     ; `P
@@ -87,7 +86,7 @@ type what =
 
 let commands = [ ("config", Man config); ("topics", List_topics) ]
 
-let doc = "Additional Dune help"
+let doc = "Additional Dune help."
 
 let man =
   [ `S "DESCRIPTION"
@@ -102,7 +101,7 @@ let man =
   ; Common.footer
   ]
 
-let info = Term.info "help" ~doc ~man
+let info = Cmd.info "help" ~doc ~man ~envs:Common.envs
 
 let term =
   Term.ret
@@ -124,4 +123,4 @@ let term =
        |> String.concat ~sep:"\n" |> print_endline;
        `Ok ()
 
-let command = (term, info)
+let command = Cmd.v info term

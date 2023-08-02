@@ -1,19 +1,17 @@
 open Stdune
+module Console = Dune_console
 
 module File = struct
   type t =
     | Default
     | No_log_file
     | This of Path.t
+    | Out_channel of out_channel
 end
 
-type real =
-  { oc : out_channel option
-  ; buf : Buffer.t
-  ; ppf : Format.formatter
-  }
+type real = { oc : out_channel option }
 
-let t = Fdecl.create Dyn.Encoder.opaque
+let t = Fdecl.create Dyn.opaque
 
 let verbose = ref false
 
@@ -21,7 +19,10 @@ let init ?(file = File.Default) () =
   let oc =
     match file with
     | No_log_file -> None
-    | This path -> Some (Io.open_out path)
+    | Out_channel s -> Some s
+    | This path ->
+      Path.mkdir_p (Path.parent_exn path);
+      Some (Io.open_out path)
     | Default ->
       Path.ensure_build_dir_exists ();
       Some (Io.open_out (Path.relative Path.build_dir "log"))
@@ -34,9 +35,7 @@ let init ?(file = File.Default) () =
         (match Env.get Env.initial "OCAMLPARAM" with
         | Some s -> Printf.sprintf "%S" s
         | None -> "unset"));
-  let buf = Buffer.create 1024 in
-  let ppf = Format.formatter_of_buffer buf in
-  Fdecl.set t (Some { oc; buf; ppf })
+  Fdecl.set t (Some { oc })
 
 let init_disabled () = Fdecl.set t None
 
@@ -58,9 +57,7 @@ let info paragraphs = info_user_message (User_message.make paragraphs)
 
 let command ~command_line ~output ~exit_status =
   match t () with
-  | None
-  | Some { oc = None; _ } ->
-    ()
+  | None | Some { oc = None; _ } -> ()
   | Some { oc = Some oc; _ } ->
     Printf.fprintf oc "$ %s\n" (Ansi_color.strip command_line);
     List.iter (String.split_lines output) ~f:(fun s ->
@@ -70,6 +67,8 @@ let command ~command_line ~output ~exit_status =
     (match (exit_status : Unix.process_status) with
     | WEXITED 0 -> ()
     | WEXITED n -> Printf.fprintf oc "[%d]\n" n
-    | WSIGNALED n -> Printf.fprintf oc "[got signal %s]\n" (Signal.name n)
+    | WSIGNALED n ->
+      let name = Signal.of_int n |> Signal.name in
+      Printf.fprintf oc "[got signal %s]\n" name
     | WSTOPPED _ -> assert false);
     flush oc

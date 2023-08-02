@@ -1,5 +1,4 @@
 (** Compilation contexts *)
-open! Dune_engine
 
 (** Dune supports two different kind of contexts:
 
@@ -20,8 +19,7 @@ open! Dune_engine
     this allow for simple cross-compilation: when an executable running on the
     host is needed, it is obtained by looking in another context. *)
 
-open! Stdune
-open! Import
+open Import
 
 module Kind : sig
   module Opam : sig
@@ -68,34 +66,20 @@ type t = private
         (** Directory where artifact are stored, for instance "_build/default" *)
   ; build_dir : Path.Build.t
         (** env node that this context was initialized with *)
-  ; env_nodes : Env_nodes.t  (** [PATH] *)
-  ; path : Path.t list  (** [OCAML_TOPLEVEL_PATH] *)
-  ; toplevel_path : Path.t option
-        (** Ocaml bin directory with all ocaml tools *)
-  ; ocaml_bin : Path.t
-  ; ocaml : Action.Prog.t
-  ; ocamlc : Path.t
-  ; ocamlopt : Action.Prog.t
-  ; ocamldep : Action.Prog.t
-  ; ocamlmklib : Action.Prog.t
-  ; ocamlobjinfo : Action.Prog.t
+  ; env_nodes : Env_nodes.t
+  ; path : Path.t list  (** [PATH] *)
+  ; ocaml : Ocaml_toolchain.t
   ; env : Env.t
-  ; findlib : Findlib.t
+  ; findlib_paths : Path.t list
   ; findlib_toolchain : Context_name.t option  (** Misc *)
   ; default_ocamlpath : Path.t list
-  ; arch_sixtyfour : bool
-  ; install_prefix : Path.t Memo.Lazy.Async.t
-  ; ocaml_config : Ocaml_config.t
-  ; ocaml_config_vars : Ocaml_config.Vars.t
-  ; version : Ocaml_version.t
-  ; stdlib_dir : Path.t
   ; supports_shared_libraries : Dynlink_supported.By_the_os.t
-  ; which : string -> Path.t option
-        (** Given a program name, e.g. ["ocaml"], find the path to a preferred
-            executable in PATH, e.g. [Some "/path/to/ocaml.opt.exe"]. *)
   ; lib_config : Lib_config.t
   ; build_context : Build_context.t
+  ; make : Path.t option Memo.Lazy.t
   }
+
+val which : t -> string -> Path.t option Memo.t
 
 val equal : t -> t -> bool
 
@@ -108,20 +92,10 @@ val to_dyn_concise : t -> Dyn.t
 (** Compare the context names *)
 val compare : t -> t -> Ordering.t
 
-val install_ocaml_libdir : t -> Path.t option Fiber.t
-
-(** Return the compiler needed for this compilation mode *)
-val compiler : t -> Mode.t -> Action.Prog.t
-
-(** The best compilation mode for this context *)
-val best_mode : t -> Mode.t
-
-(** [\["-g"\]] if [!Clflags.g] and [\[\]] otherwise *)
-val cc_g : t -> string list
+(** Return what [%{make}] should expand into *)
+val make : t -> Path.t option Memo.t
 
 val name : t -> Context_name.t
-
-val has_native : t -> bool
 
 val lib_config : t -> Lib_config.t
 
@@ -133,10 +107,16 @@ val map_exe : t -> Path.t -> Path.t
 
 val build_context : t -> Build_context.t
 
-val init_configurator : t -> unit
+(** Query where build artifacts should be installed if the user doesn't specify
+    an explicit installation directory. *)
+val roots : t -> Path.t option Install.Roots.t
+
+val host : t -> t
 
 module DB : sig
-  val get : Path.Build.t -> t
+  val get : Context_name.t -> t Memo.t
 
-  val all : unit -> t list Fiber.t
+  val all : unit -> t list Memo.t
+
+  val by_dir : Path.Build.t -> t Memo.t
 end

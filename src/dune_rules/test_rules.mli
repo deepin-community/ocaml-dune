@@ -1,5 +1,4 @@
-open! Dune_engine
-open Stdune
+open Import
 
 val rules :
      Dune_file.Tests.t
@@ -8,4 +7,4 @@ val rules :
   -> scope:Scope.t
   -> expander:Expander.t
   -> dir_contents:Dir_contents.t
-  -> Compilation_context.t * Merlin.t
+  -> (Compilation_context.t * Merlin.t) Memo.t

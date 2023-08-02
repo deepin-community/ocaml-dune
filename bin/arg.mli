@@ -1,5 +1,4 @@
 open Stdune
-open Dune_engine
 open Dune_rules
 
 include module type of struct
@@ -7,6 +6,14 @@ include module type of struct
 end
 
 module Path : sig
+  module External : sig
+    type t
+
+    val path : t -> Path.External.t
+
+    val arg : t -> string
+  end
+
   type t
 
   val path : t -> Path.t
@@ -28,15 +35,19 @@ end
 
 val bytes : int64 conv
 
-val context_name : Context_name.t conv
+val context_name : Dune_engine.Context_name.t conv
 
 val dep : Dep.t conv
 
+val graph_format : Dune_graph.Graph.File_format.t conv
+
 val path : Path.t conv
+
+val external_path : Path.External.t conv
 
 val package_name : Package.Name.t conv
 
-val profile : Profile.t conv
+val profile : Dune_lang.Profile.t conv
 
 val lib_name : Lib_name.t conv
 

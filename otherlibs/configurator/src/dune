@@ -4,11 +4,16 @@
  (name configurator)
  (public_name dune-configurator)
  (private_modules import dune_lang ocaml_config)
- (libraries unix csexp result)
+ (libraries unix csexp)
  (flags
   (:standard
    -safe-string
    (:include flags/flags.sexp)))
  (special_builtin_support
   (configurator
-   (api_version 1))))
+   (api_version 1)))
+ (instrumentation
+  (backend bisect_ppx)))
+
+(documentation
+ (package dune-configurator))

@@ -4,7 +4,7 @@ module Re = Dune_re
 
 let () =
   Path.set_root (Path.External.cwd ());
-  Path.Build.set_build_dir (Path.Build.Kind.of_string "_build")
+  Path.Build.set_build_dir (Path.Outside_build_dir.of_string "_build")
 
 let fail fmt =
   Printf.ksprintf
@@ -54,7 +54,7 @@ let () =
 (* {2 Test harness}
 
    The test harness implements a slower but much simpler version of the
-   substution algorithm and compare the result for various inputs between the
+   substitution algorithm and compare the result for various inputs between the
    simpler implementation and the real one. *)
 
 let simple_subst =
@@ -76,26 +76,18 @@ let simple_subst =
         || s.[pos] <> '%'
         || s.[pos + 1] <> '%'
         || s.[pos + 2] <> 'D'
-      then
-        None
+      then None
       else
         let* groups = Re.exec_opt re s ~pos in
-        let* len =
-          let len = Re.Group.get groups 1 in
-          match int_of_string len with
-          | n -> Some n
-          | exception _ -> None
-        in
-        if pos + len > slen then
-          None
+        let* len = Int.of_string (Re.Group.get groups 1) in
+        if pos + len > slen then None
         else
           let* p = Artifact_substitution.decode (String.sub s ~pos ~len) in
           Some (len, p)
     in
     let buf = Buffer.create slen in
     let rec loop pos =
-      if pos = slen then
-        Buffer.contents buf
+      if pos = slen then Buffer.contents buf
       else
         match extract_placeholder pos with
         | None ->
@@ -121,8 +113,7 @@ let compress_string s =
   let last_char = ref '\000' in
   let commit_chain () =
     let s = Char.escaped !last_char in
-    if !chain_length > 5 then
-      Printf.bprintf buf "%s\\{%d}" s !chain_length
+    if !chain_length > 5 then Printf.bprintf buf "%s\\{%d}" s !chain_length
     else
       for _i = 1 to !chain_length do
         Buffer.add_string buf s
@@ -130,13 +121,11 @@ let compress_string s =
   in
   for i = 0 to String.length s - 1 do
     let c = s.[i] in
-    if c = !last_char then
-      incr chain_length
+    if c = !last_char then incr chain_length
     else (
       commit_chain ();
       last_char := c;
-      chain_length := 1
-    )
+      chain_length := 1)
   done;
   commit_chain ();
   Buffer.contents buf
@@ -147,6 +136,7 @@ let test input =
   Fiber.run
     ~iter:(fun () -> assert false)
     (let ofs = ref 0 in
+     let open Fiber.O in
      let input buf pos len =
        let to_copy = min len (String.length input - !ofs) in
        Bytes.blit_string ~src:input ~dst:buf ~src_pos:!ofs ~dst_pos:pos
@@ -155,9 +145,12 @@ let test input =
        to_copy
      in
      let output = Buffer.add_subbytes buf in
-     Artifact_substitution.copy ~conf:Artifact_substitution.conf_dummy
-       ~input_file:(Path.of_string "<memory>")
-       ~input ~output);
+     let+ (_ : Artifact_substitution.status) =
+       Artifact_substitution.copy ~conf:Artifact_substitution.conf_dummy
+         ~input_file:(Path.of_string "<memory>")
+         ~input ~output
+     in
+     ());
   let result = Buffer.contents buf in
   if result <> expected then
     fail

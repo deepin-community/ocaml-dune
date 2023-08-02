@@ -1,31 +1,48 @@
-open Stdune
+open Import
 
 type t =
   { dir : Path.t
-  ; predicate : string Predicate.t
+  ; predicate : Predicate_lang.Glob.t
+  ; only_generated_files : bool
   }
 
 let dir t = t.dir
 
-let compare x y =
-  match Path.compare x.dir y.dir with
-  | (Ordering.Lt | Gt) as a -> a
-  | Eq -> Predicate.compare x.predicate y.predicate
+let only_generated_files t = t.only_generated_files
 
-let create ~dir predicate = { dir; predicate }
+let compare { dir; predicate; only_generated_files } t =
+  let open Ordering.O in
+  let= () = Path.compare dir t.dir in
+  let= () = Predicate_lang.Glob.compare predicate t.predicate in
+  Bool.compare only_generated_files t.only_generated_files
 
-let to_dyn { dir; predicate } =
-  let open Dyn in
-  Record [ ("dir", Path.to_dyn dir); ("predicate", Predicate.to_dyn predicate) ]
+let of_predicate_lang ~dir ?(only_generated_files = false) predicate =
+  { dir; predicate; only_generated_files }
 
-let encode { dir; predicate } =
-  let open Dune_lang.Encoder in
+let of_glob ~dir glob =
+  of_predicate_lang ~dir (Predicate_lang.Glob.of_glob glob)
+
+let to_dyn { dir; predicate; only_generated_files } =
+  Dyn.Record
+    [ ("dir", Path.to_dyn dir)
+    ; ("predicate", Predicate_lang.Glob.to_dyn predicate)
+    ; ("only_generated_files", Bool only_generated_files)
+    ]
+
+let encode { dir; predicate; only_generated_files } =
+  let open Dune_sexp.Encoder in
   record
-    [ ("dir", Dpath.encode dir); ("predicate", Predicate.encode predicate) ]
+    [ ("dir", Dpath.encode dir)
+    ; ("predicate", Predicate_lang.Glob.encode predicate)
+    ; ("only_generated_files", bool only_generated_files)
+    ]
 
 let equal x y = compare x y = Eq
 
-let hash { dir; predicate } =
-  Tuple.T2.hash Path.hash Predicate.hash (dir, predicate)
+let hash { dir; predicate; only_generated_files } =
+  Tuple.T3.hash Path.hash Predicate_lang.Glob.hash Bool.hash
+    (dir, predicate, only_generated_files)
 
-let test t path = Predicate.test t.predicate (Path.basename path)
+let test t path =
+  Predicate_lang.Glob.test t.predicate ~standard:Predicate_lang.false_
+    (Path.basename path)

@@ -1,5 +1,3 @@
-open! Dune_engine
-open! Stdune
 open Import
 
 (** {1 Generals} *)
@@ -15,167 +13,107 @@ val name : t -> Lib_name.t
 
 val lib_config : t -> Lib_config.t
 
-val implements : t -> t Or_exn.t option
-
-(** Directory where the object files for the library are located. *)
-val obj_dir : t -> Path.t Obj_dir.t
+val implements : t -> t Resolve.Memo.t option
 
 (** Same as [Path.is_managed (obj_dir t)] *)
 val is_local : t -> bool
 
 val info : t -> Path.t Lib_info.t
 
-val main_module_name : t -> Module_name.t option Or_exn.t
+val main_module_name : t -> Module_name.t option Resolve.Memo.t
 
-val entry_module_names : t -> Module_name.t list Or_exn.t
-
-val src_dirs : t -> Path.Set.t
-
-val wrapped : t -> Wrapped.t option Or_exn.t
-
-(** [is_impl lib] returns [true] if the library is an implementation of a
-    virtual library *)
-val is_impl : t -> bool
+val wrapped : t -> Wrapped.t option Resolve.Memo.t
 
 (** Direct library dependencies of this library *)
-val requires : t -> t list Or_exn.t
+val requires : t -> t list Resolve.Memo.t
 
-(** A unique integer identifier. It is only unique for the duration of the
-    process *)
-module Id : sig
-  type t
+val ppx_runtime_deps : t -> t list Resolve.Memo.t
 
-  val compare : t -> t -> Ordering.t
-end
+val pps : t -> t list Resolve.Memo.t
 
-val unique_id : t -> Id.t
+include Comparable_intf.S with type key := t
 
-module Set : Set.S with type elt = t
-
-module Map : Map.S with type key = t
+val compare : t -> t -> Ordering.t
 
 val equal : t -> t -> bool
 
 val hash : t -> int
 
-(** The list of files that will be read by the compiler when linking an
-    executable against this library *)
-val link_deps : t -> Link_mode.t -> Path.t list
+val project : t -> Dune_project.t option
 
 (** Operations on list of libraries *)
 module L : sig
-  type lib
-
-  type nonrec t = t list
-
-  val to_iflags : Path.Set.t -> _ Command.Args.t
-
-  val include_paths : ?project:Dune_project.t -> t -> Mode.t -> Path.Set.t
-
-  val include_flags : ?project:Dune_project.t -> t -> Mode.t -> _ Command.Args.t
-
-  val c_include_paths : t -> Path.Set.t
-
-  val c_include_flags : t -> _ Command.Args.t
-
-  val toplevel_include_paths : t -> Path.Set.t
-
-  val compile_and_link_flags :
-    compile:t -> link:t -> mode:Link_mode.t -> _ Command.Args.t
-
-  val jsoo_runtime_files : t -> Path.t list
-
-  val remove_dups : t -> t
-
   val top_closure :
        'a list
-    -> key:('a -> lib)
-    -> deps:('a -> 'a list)
-    -> ('a list, 'a list) Result.t
+    -> key:('a -> t)
+    -> deps:('a -> 'a list Resolve.Memo.t)
+    -> ('a list, 'a list) Result.t Resolve.Memo.t
 end
-with type lib := t
-
-(** Operation on list of libraries and modules *)
-module Lib_and_module : sig
-  type lib = t
-
-  type t =
-    | Lib of lib
-    | Module of Path.t Obj_dir.t * Module.t
-
-  module L : sig
-    type nonrec t = t list
-
-    val of_libs : lib list -> t
-
-    val link_flags :
-      t -> lib_config:Lib_config.t -> mode:Link_mode.t -> _ Command.Args.t
-  end
-end
-with type lib := t
 
 (** {1 Compilation contexts} *)
 
 (** See {!Sub_system} *)
 type sub_system = ..
 
+type db
+
 (** For compiling a library or executable *)
 module Compile : sig
+  type lib := t
+
   type t
 
-  type lib
+  val for_lib : allow_overlaps:bool -> db -> lib -> t
 
   (** Return the list of dependencies needed for linking this library/exe *)
-  val requires_link : t -> L.t Or_exn.t Lazy.t
+  val requires_link : t -> lib list Resolve.t Memo.Lazy.t
 
   (** Dependencies listed by the user + runtime dependencies from ppx *)
-  val direct_requires : t -> L.t Or_exn.t
+  val direct_requires : t -> lib list Resolve.Memo.t
 
   module Resolved_select : sig
     type t =
-      { src_fn : string Or_exn.t
-      ; dst_fn : string
+      { src_fn : Filename.t Resolve.t
+      ; dst_fn : Filename.t
       }
   end
 
   (** Resolved select forms *)
-  val resolved_selects : t -> Resolved_select.t list
+  val resolved_selects : t -> Resolved_select.t list Resolve.Memo.t
 
   (** Transitive closure of all used ppx rewriters *)
-  val pps : t -> L.t Or_exn.t
-
-  val lib_deps_info : t -> Lib_deps_info.t
+  val pps : t -> lib list Resolve.Memo.t
 
   val merlin_ident : t -> Merlin_ident.t
 
   (** Sub-systems used in this compilation context *)
-  val sub_systems : t -> sub_system list
+  val sub_systems : t -> sub_system list Memo.t
 end
-with type lib := t
 
 (** {1 Library name resolution} *)
 
 (** Collection of libraries organized by names *)
 module DB : sig
-  type lib = t
+  type lib := t
 
   (** A database allow to resolve library names *)
-  type t
+  type t = db
+
+  val installed : Context.t -> t Memo.t
 
   module Resolve_result : sig
-    type t
+    type db := t
 
-    type db
+    type t
 
     val not_found : t
 
     val found : Lib_info.external_ -> t
 
-    val to_dyn : t Dyn.Encoder.t
+    val to_dyn : t Dyn.builder
 
     val redirect : db option -> Loc.t * Lib_name.t -> t
   end
-  with type db := t
 
   (** Create a new library database. [resolve] is used to resolve library names
       in this database.
@@ -186,71 +124,77 @@ module DB : sig
       [all] returns the list of names of libraries available in this database. *)
   val create :
        parent:t option
-    -> resolve:(Lib_name.t -> Resolve_result.t)
-    -> projects_by_package:Dune_project.t Package.Name.Map.t
-    -> all:(unit -> Lib_name.t list)
-    -> modules_of_lib:(dir:Path.Build.t -> name:Lib_name.t -> Modules.t) Fdecl.t
+    -> resolve:(Lib_name.t -> Resolve_result.t Memo.t)
+    -> all:(unit -> Lib_name.t list Memo.t)
     -> lib_config:Lib_config.t
     -> unit
     -> t
 
-  val create_from_findlib :
-       lib_config:Lib_config.t
-    -> projects_by_package:Dune_project.t Package.Name.Map.t
-    -> Findlib.t
-    -> t
+  val find : t -> Lib_name.t -> lib option Memo.t
 
-  val find : t -> Lib_name.t -> lib option
+  val find_even_when_hidden : t -> Lib_name.t -> lib option Memo.t
 
-  val find_even_when_hidden : t -> Lib_name.t -> lib option
-
-  val available : t -> Lib_name.t -> bool
+  val available : t -> Lib_name.t -> bool Memo.t
 
   (** Retrieve the compile information for the given library. Works for
       libraries that are optional and not available as well. *)
-  val get_compile_info : t -> ?allow_overlaps:bool -> Lib_name.t -> Compile.t
+  val get_compile_info :
+    t -> allow_overlaps:bool -> Lib_name.t -> (lib * Compile.t) Memo.t
 
-  val resolve : t -> Loc.t * Lib_name.t -> lib Or_exn.t
+  val resolve : t -> Loc.t * Lib_name.t -> lib Resolve.Memo.t
 
   (** Like [resolve], but will return [None] instead of an error if we are
       unable to find the library. *)
-  val resolve_when_exists : t -> Loc.t * Lib_name.t -> lib Or_exn.t option
+  val resolve_when_exists :
+    t -> Loc.t * Lib_name.t -> lib Resolve.t option Memo.t
 
   (** Resolve libraries written by the user in a [dune] file. The resulting list
       of libraries is transitively closed and sorted by the order of
       dependencies.
 
-      This function is for executables stanzas. *)
-  val resolve_user_written_deps_for_exes :
+      This function is for executables or melange.emit stanzas. *)
+  val resolve_user_written_deps :
        t
-    -> (Loc.t * string) list
-    -> ?allow_overlaps:bool
-    -> ?forbidden_libraries:(Loc.t * Lib_name.t) list
+    -> [ `Exe of (Import.Loc.t * string) list | `Melange_emit of string ]
+    -> allow_overlaps:bool
+    -> forbidden_libraries:(Loc.t * Lib_name.t) list
     -> Lib_dep.t list
     -> pps:(Loc.t * Lib_name.t) list
     -> dune_version:Dune_lang.Syntax.Version.t
-    -> optional:bool
+    -> merlin_ident:Merlin_ident.t
     -> Compile.t
 
-  val resolve_pps : t -> (Loc.t * Lib_name.t) list -> L.t Or_exn.t
+  val resolve_pps : t -> (Loc.t * Lib_name.t) list -> lib list Resolve.Memo.t
 
   (** Return the list of all libraries in this database. If [recursive] is true,
       also include libraries in parent databases recursively. *)
-  val all : ?recursive:bool -> t -> Set.t
+  val all : ?recursive:bool -> t -> Set.t Memo.t
 
   val instrumentation_backend :
-    t -> Loc.t * Lib_name.t -> Preprocess.Without_instrumentation.t option
+       t
+    -> Loc.t * Lib_name.t
+    -> Preprocess.Without_instrumentation.t option Resolve.Memo.t
 end
-with type lib := t
 
 (** {1 Transitive closure} *)
 
-val closure : L.t -> linking:bool -> L.t Or_exn.t
+val closure : t list -> linking:bool -> t list Resolve.Memo.t
+
+(** [descriptive_closure ~with_pps libs] computes the smallest set of libraries
+    that contains the libraries in the list [libs], and that is transitively
+    closed. If [with_pps = true], then the dependencies towards ppx-rewriters
+    are also taken into account (note that runtime dependendies of ppx-rewriters
+    are always taken into account, regardless of the value of the flag
+    [with_pps]). The output list is guaranteed to have no duplicates and to be
+    sorted. The difference with [closure libs] is that the latter may raise an
+    error when overlapping implementations of virtual libraries are detected.
+    [descriptive_closure libs] makes no such check. *)
+val descriptive_closure : t list -> with_pps:bool -> t list Memo.t
 
 (** {1 Sub-systems} *)
 
 module Sub_system : sig
-  type lib = t
+  type lib := t
 
   type t = sub_system = ..
 
@@ -262,42 +206,33 @@ module Sub_system : sig
     type sub_system += T of t
 
     val instantiate :
-         resolve:(Loc.t * Lib_name.t -> lib Or_exn.t)
-      -> get:(loc:Loc.t -> lib -> t option)
+         resolve:(Loc.t * Lib_name.t -> lib Resolve.Memo.t)
+      -> get:(loc:Loc.t -> lib -> t option Memo.t)
       -> lib
       -> Info.t
-      -> t
+      -> t Memo.t
 
-    val public_info : (t -> Info.t Or_exn.t) option
+    val public_info : (t -> Info.t Resolve.Memo.t) option
   end
 
   module Register (M : S) : sig
     (** Get the instance of the subsystem for this library *)
-    val get : lib -> M.t option
+    val get : lib -> M.t option Memo.t
   end
-end
-with type lib := t
-
-(** {1 Dependencies for META files} *)
-
-module Meta : sig
-  val requires : t -> Lib_name.Set.t
-
-  val ppx_runtime_deps : t -> Lib_name.Set.t
-
-  val ppx_runtime_deps_for_deprecated_method : t -> Lib_name.Set.t
 end
 
 val to_dune_lib :
      t
   -> modules:Modules.t
   -> foreign_objects:Path.t list
+  -> melange_runtime_deps:Path.t list
+  -> public_headers:Path.t list
   -> dir:Path.t
-  -> Dune_package.Lib.t Or_exn.t
+  -> Dune_package.Lib.t Resolve.Memo.t
 
 (** Local libraries *)
 module Local : sig
-  type lib
+  type lib := t
 
   type t = private lib
 
@@ -317,8 +252,5 @@ module Local : sig
 
   val obj_dir : t -> Path.Build.t Obj_dir.t
 
-  module Set : Stdune.Set.S with type elt = t
-
-  module Map : Stdune.Map.S with type key = t
+  include Comparable_intf.S with type key := t
 end
-with type lib := t

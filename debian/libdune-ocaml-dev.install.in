@@ -1,4 +1,8 @@
 @OCamlStdlibDir@/dune
 @OCamlStdlibDir@/dune-private-libs
 @OCamlStdlibDir@/dune-configurator
-@OCamlDllDir@
+@OCamlStdlibDir@/stdune
+@OCamlStdlibDir@/xdg
+usr/lib/ocaml/stublibs/dlldune_filesystem_stubs_stubs.so @OCamlDllDir@
+usr/lib/ocaml/stublibs/dllstdune_stubs.so @OCamlDllDir@
+usr/lib/ocaml/stublibs/dllxdg_stubs.so @OCamlDllDir@

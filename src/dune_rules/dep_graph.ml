@@ -1,36 +1,33 @@
-open! Dune_engine
 open Import
-open Build.O
+open Action_builder.O
 
 type t =
   { dir : Path.Build.t
-  ; per_module : Module.t list Build.t Module.Obj_map.t
+  ; per_module : Module.t list Action_builder.t Module_name.Unique.Map.t
   }
 
 let make ~dir ~per_module = { dir; per_module }
 
 let deps_of t (m : Module.t) =
-  match Module.Obj_map.find t.per_module m with
+  match Module_name.Unique.Map.find t.per_module (Module.obj_name m) with
   | Some x -> x
   | None ->
     Code_error.raise "Ocamldep.Dep_graph.deps_of"
       [ ("dir", Path.Build.to_dyn t.dir)
       ; ( "modules"
-        , Dyn.Encoder.(list Module_name.Unique.to_dyn)
-            (Module.Obj_map.keys t.per_module |> List.map ~f:Module.obj_name) )
+        , Dyn.(list Module_name.Unique.to_dyn)
+            (Module_name.Unique.Map.keys t.per_module) )
       ; ("m", Module.to_dyn m)
       ]
 
+module Top_closure = Top_closure.Make (Module_name.Unique.Set) (Action_builder)
+
 let top_closed t modules =
-  let+ per_module =
-    Module.Obj_map.to_list t.per_module
-    |> List.map ~f:(fun (unit, deps) ->
-           let+ deps = deps in
-           (unit, deps))
-    |> Build.all
+  let+ res =
+    Top_closure.top_closure modules ~key:Module.obj_name ~deps:(fun m ->
+        Module_name.Unique.Map.find_exn t.per_module (Module.obj_name m))
   in
-  let per_module = Module.Obj_map.of_list_exn per_module in
-  match Module.Obj_map.top_closure per_module modules with
+  match res with
   | Ok modules -> modules
   | Error cycle ->
     User_error.raise
@@ -41,15 +38,29 @@ let top_closed t modules =
       ]
 
 let top_closed_implementations t modules =
-  Build.memoize "top sorted implementations"
-    (let filter_out_intf_only = List.filter ~f:(Module.has ~ml_kind:Impl) in
-     Build.map
-       (top_closed t (filter_out_intf_only modules))
-       ~f:filter_out_intf_only)
+  List.filter modules ~f:(Module.has ~ml_kind:Impl)
+  |> top_closed t
+  |> Action_builder.map
+       ~f:
+         (let obj_map =
+            List.map modules ~f:(fun x -> (x, x))
+            |> Module.Obj_map.of_list_reduce ~f:(fun x y ->
+                   match Module.kind x with
+                   | Impl_vmodule -> x
+                   | _ -> y)
+          in
+          List.filter_map ~f:(fun m ->
+              match Module.kind m with
+              | Virtual -> Some (Module.Obj_map.find_exn obj_map m)
+              | Intf_only -> None
+              | _ -> Some m))
+  |> Action_builder.memoize "top sorted implementations"
 
 let dummy (m : Module.t) =
   { dir = Path.Build.root
-  ; per_module = Module.Obj_map.singleton m (Build.return [])
+  ; per_module =
+      Module_name.Unique.Map.singleton (Module.obj_name m)
+        (Action_builder.return [])
   }
 
 module Ml_kind = struct

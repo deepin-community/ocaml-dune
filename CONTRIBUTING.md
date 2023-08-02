@@ -4,10 +4,13 @@ developed at [Jane Street][js] and is now maintained by Jane Street,
 community.
 
 Contributions to Dune are welcome and should be submitted via GitHub
-pull requests against the `master` branch. Dune is distributed under
-the MIT license and contributors are required to sign their work in
-order to certify that they have the right to submit it under this
-license. See the following section for more details.
+pull requests against the `main` branch. See [./doc/hacking.rst][hack]
+for a guide to getting started on the code base.
+
+Dune is distributed under the MIT license and contributors are
+required to sign their work in order to certify that they have the
+right to submit it under this license. See the following section for
+more details.
 
 Signing contributions
 ---------------------
@@ -68,9 +71,16 @@ Use your real name (sorry, no pseudonyms or anonymous contributions.)
 If you set your `user.name` and `user.email` git configs, you can sign
 your commit automatically with `git commit -s`.
 
+It is possible to set up `git` so that it signs off automatically by using a
+prepare-commit-msg hook in git. See <https://stackoverflow.com/a/46536244> for
+details. As noted in the manual for `format.signOff`, note that adding the
+`Signed-off-by` trailer should be a conscious act and means that you certify
+you have the rights to submit this work under the same open source license.
+
 [dco]: http://developercertificate.org/
 [js]: https://www.janestreet.com/
 [ocl]: http://ocamllabs.io/
+[hack]: ./doc/hacking.rst
 
 Coding style
 ------------

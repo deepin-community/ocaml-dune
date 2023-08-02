@@ -1,11 +1,19 @@
+open Stdune
 open Dune_rules
-open Import
+open Dune_rules.For_tests
 open Dune_tests_common
 
 let () = init ()
 
-let db_path =
-  Path.of_filename_relative_to_initial_cwd "../unit-tests/findlib-db"
+let foo_meta = {|
+requires = "bar"
+requires(ppx_driver) = "baz"
+|}
+
+let db_path : Path.Outside_build_dir.t =
+  External
+    (Path.External.of_filename_relative_to_initial_cwd
+       "../unit-tests/findlib-db")
 
 let print_pkg ppf pkg =
   let info = Dune_package.Lib.info pkg in
@@ -25,25 +33,65 @@ let findlib =
     ; ext_dll = ".so"
     ; stdlib_dir = Path.root
     ; ccomp_type = Other "gcc"
-    ; profile = Profile.Dev
     ; ocaml_version_string = "4.02.3"
-    ; ocaml_version = Ocaml_version.make (4, 2, 3)
+    ; ocaml_version = Ocaml.Version.make (4, 2, 3)
     ; instrument_with = []
-    ; context_name = Context_name.of_string "default"
     }
   in
-  Findlib.create ~paths:[ db_path ] ~lib_config
+  Memo.lazy_ (fun () ->
+      Findlib.create ~paths:[ Path.outside_build_dir db_path ] ~lib_config)
+
+let resolve_pkg s =
+  (let lib_name = Lib_name.of_string s in
+   let open Memo.O in
+   let* findlib = Memo.Lazy.force findlib in
+   Findlib.find findlib lib_name)
+  |> Memo.run
+  |> Test_scheduler.(run (create ()))
+
+let elide_db_path path =
+  let prefix = Path.Outside_build_dir.to_string db_path in
+  let path = Path.to_string path in
+  String.drop_prefix_if_exists path ~prefix
+
+let print_pkg_archives pkg =
+  let pkg = resolve_pkg pkg in
+  let pkg =
+    match pkg with
+    | Ok (Library x) ->
+      Ok
+        (Ocaml.Mode.Dict.map
+           (Lib_info.archives (Dune_package.Lib.info x))
+           ~f:(List.map ~f:elide_db_path))
+    | Ok _ -> assert false
+    | Error _ as err -> err
+  in
+  let to_dyn =
+    Result.to_dyn
+      (Ocaml.Mode.Dict.to_dyn (Dyn.list Dyn.string))
+      Findlib.Unavailable_reason.to_dyn
+  in
+  let pp = Dyn.pp (to_dyn pkg) in
+  Format.printf "%a@." Pp.to_fmt pp
+
+let%expect_test _ =
+  print_pkg_archives "qux";
+  [%expect {| Ok { byte = [ "/qux/qux.cma" ]; native = [] } |}]
+
+let%expect_test _ =
+  print_pkg_archives "xyz";
+  [%expect {| Ok { byte = [ "/xyz.cma" ]; native = [] } |}]
 
 let%expect_test _ =
   let pkg =
-    match Findlib.find findlib (Lib_name.of_string "foo") with
+    match resolve_pkg "foo" with
     | Ok (Library x) -> x
     | _ -> assert false
   in
   (* "foo" should depend on "baz" *)
   let info = Dune_package.Lib.info pkg in
   let requires = Lib_info.requires info in
-  let dyn = Dyn.Encoder.list Lib_dep.to_dyn requires in
+  let dyn = Dyn.list Lib_dep.to_dyn requires in
   let pp = Dyn.pp dyn in
   Format.printf "%a@." Pp.to_fmt pp;
   [%expect {|[ "baz" ]|}]
@@ -51,8 +99,7 @@ let%expect_test _ =
 (* Meta parsing/simplification *)
 
 let%expect_test _ =
-  Path.relative db_path "foo/META"
-  |> Meta.load ~name:(Some (Package.Name.of_string "foo"))
+  Meta.of_string foo_meta ~name:(Some (Package.Name.of_string "foo"))
   |> Meta.Simplified.to_dyn |> print_dyn;
   [%expect
     {|
@@ -78,28 +125,45 @@ let%expect_test _ =
     ; subs = []
     } |}]
 
-let conf =
-  Findlib.Config.load
-    (Path.relative db_path "../toolchain")
-    ~toolchain:"tlc" ~context:"<context>"
+let conf () =
+  let memo =
+    let open Memo.O in
+    Findlib.Config.discover_from_env
+      ~which:(fun _ -> assert false)
+      ~ocamlpath:[]
+      ~env:
+        (Env.initial
+        |> Env.add ~var:"OCAMLFIND_CONF"
+             ~value:
+               (Path.Outside_build_dir.relative db_path "../toolchain"
+               |> Path.Outside_build_dir.to_string))
+      ~findlib_toolchain:(Some "tlc")
+    >>| Option.value_exn
+  in
+  Memo.run memo |> Test_scheduler.(run (create ()))
 
 let%expect_test _ =
+  let conf = conf () in
   print_dyn (Findlib.Config.to_dyn conf);
   [%expect
     {|
-    { vars =
-        map
-          { "FOO_BAR" :
-              { set_rules =
-                  [ { preds_required = set { 6; 7 }
-                    ; preds_forbidden = set {}
-                    ; value = "my variable"
-                    }
-                  ]
-              ; add_rules = []
+    { config =
+        { vars =
+            map
+              { "FOO_BAR" :
+                  { set_rules =
+                      [ { preds_required = set { "env"; "tlc" }
+                        ; preds_forbidden = set {}
+                        ; value = "my variable"
+                        }
+                      ]
+                  ; add_rules = []
+                  }
               }
-          }
-    ; preds = set { 6 }
+        ; preds = set { "tlc" }
+        }
+    ; ocamlpath = []
+    ; toolchain = Some "tlc"
     } |}];
   print_dyn (Env.to_dyn (Findlib.Config.env conf));
   [%expect {| map { "FOO_BAR" : "my variable" } |}]

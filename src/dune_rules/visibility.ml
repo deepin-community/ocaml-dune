@@ -1,5 +1,4 @@
-open! Dune_engine
-open Stdune
+open Import
 
 type t =
   | Public
@@ -9,7 +8,7 @@ let to_string = function
   | Public -> "public"
   | Private -> "private"
 
-let to_dyn t = Dyn.Encoder.string (to_string t)
+let to_dyn t = Dyn.string (to_string t)
 
 let encode =
   let open Dune_lang.Encoder in

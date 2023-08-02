@@ -101,8 +101,7 @@ module Status_line = struct
         sprintf "Done: %d/%d (jobs: %d)" !num_jobs_finished !num_jobs jobs
       in
       Printf.printf "\r%*s\r%s%!" (String.length !displayed) "" new_displayed;
-      displayed := new_displayed
-    )
+      displayed := new_displayed)
 
   let () =
     at_exit (fun () -> Printf.printf "\r%*s\r" (String.length !displayed) "")
@@ -142,10 +141,8 @@ let split_lines s =
   let rec loop ~last_is_cr ~acc i j =
     if j = String.length s then
       let acc =
-        if j = i || (j = i + 1 && last_is_cr) then
-          acc
-        else
-          String.sub s ~pos:i ~len:(j - i) :: acc
+        if j = i || (j = i + 1 && last_is_cr) then acc
+        else String.sub s ~pos:i ~len:(j - i) :: acc
       in
       List.rev acc
     else
@@ -153,12 +150,7 @@ let split_lines s =
       | '\r' -> loop ~last_is_cr:true ~acc i (j + 1)
       | '\n' ->
         let line =
-          let len =
-            if last_is_cr then
-              j - i - 1
-            else
-              j - i
-          in
+          let len = if last_is_cr then j - i - 1 else j - i in
           String.sub s ~pos:i ~len
         in
         loop ~acc:(line :: acc) (j + 1) (j + 1) ~last_is_cr:false
@@ -167,7 +159,7 @@ let split_lines s =
   loop ~acc:[] 0 0 ~last_is_cr:false
 
 (* copy a file - fails if the file exists *)
-let copy ?(header = "") a b =
+let copy ?(header = "") directive a b =
   if Sys.file_exists b then fatal "%s already exists" b;
   let ic = open_in_bin a in
   let len = in_channel_length ic in
@@ -175,31 +167,18 @@ let copy ?(header = "") a b =
   close_in ic;
   let oc = open_out_bin b in
   output_string oc header;
-  (* MSVC is fussy about #line 1 vs # 1 *)
-  let directive =
-    if Filename.extension b = ".c" then
-      "line"
-    else
-      ""
-  in
   fprintf oc "#%s 1 %S\n" directive a;
   output_string oc s;
   close_out oc
 
-let path_sep =
-  if Sys.win32 then
-    ';'
-  else
-    ':'
+let path_sep = if Sys.win32 then ';' else ':'
 
 let split_path s =
   let rec loop i j =
-    if j = String.length s then
-      [ String.sub s ~pos:i ~len:(j - i) ]
+    if j = String.length s then [ String.sub s ~pos:i ~len:(j - i) ]
     else if s.[j] = path_sep then
       String.sub s ~pos:i ~len:(j - i) :: loop (j + 1) (j + 1)
-    else
-      loop i (j + 1)
+    else loop i (j + 1)
   in
   loop 0 0
 
@@ -208,40 +187,59 @@ let path =
   | exception Not_found -> []
   | s -> split_path s
 
-let exe =
-  if Sys.win32 then
-    ".exe"
-  else
-    ""
+let find_prog ~f =
+  let rec search = function
+    | [] -> None
+    | dir :: rest -> (
+      match f dir with
+      | None -> search rest
+      | Some fn -> Some (dir, fn))
+  in
+  search path
+
+let exe = if Sys.win32 then ".exe" else ""
 
 (** {2 Concurrency level} *)
 
 let concurrency =
-  let try_run_and_capture_line cmd =
-    let ic, oc, ec = Unix.open_process_full cmd [||] in
-    let line =
-      match input_line ic with
-      | s -> Some s
-      | exception _ -> None
-    in
-    match (Unix.close_process_full (ic, oc, ec), line) with
-    | WEXITED 0, Some s -> Some s
-    | _ -> None
+  let try_run_and_capture_line (prog, args) =
+    match
+      find_prog ~f:(fun dir ->
+          if Sys.file_exists (dir ^/ prog) then Some prog else None)
+    with
+    | None -> None
+    | Some (dir, prog) -> (
+      let path = dir ^/ prog in
+      let args = Array.of_list @@ (path :: args) in
+      let ic, oc, ec =
+        Unix.open_process_args_full path args (Unix.environment ())
+      in
+      let line =
+        match input_line ic with
+        | s -> Some s
+        | exception End_of_file -> None
+      in
+      match (Unix.close_process_full (ic, oc, ec), line) with
+      | WEXITED 0, Some s -> Some s
+      | _ -> None)
   in
   match concurrency with
   | Some n -> n
   | None ->
     (* If no [-j] was given, try to autodetect the number of processors *)
     if Sys.win32 then
-      match Sys.getenv "NUMBER_OF_PROCESSORS" with
-      | exception _ -> 1
-      | s -> (
+      match Sys.getenv_opt "NUMBER_OF_PROCESSORS" with
+      | None -> 1
+      | Some s -> (
         match int_of_string s with
         | exception _ -> 1
         | n -> n)
     else
       let commands =
-        [ "nproc"; "getconf _NPROCESSORS_ONLN"; "getconf NPROCESSORS_ONLN" ]
+        [ ("nproc", [])
+        ; ("getconf", [ "_NPROCESSORS_ONLN" ])
+        ; ("getconf", [ "NPROCESSORS_ONLN" ])
+        ]
       in
       let rec loop = function
         | [] -> 1
@@ -391,9 +389,7 @@ end = struct
       at_exit (fun () ->
           let fns = !tmp_files in
           tmp_files := Files.empty;
-          Files.iter fns ~f:(fun fn ->
-              try Sys.remove fn with
-              | _ -> ()))
+          Files.iter fns ~f:(fun fn -> try Sys.remove fn with _ -> ()))
 
     let file prefix suffix =
       let fn = Filename.temp_file prefix suffix in
@@ -401,8 +397,7 @@ end = struct
       fn
 
     let destroy_file fn =
-      (try Sys.remove fn with
-      | _ -> ());
+      (try Sys.remove fn with _ -> ());
       tmp_files := Files.remove fn !tmp_files
   end
 
@@ -422,11 +417,7 @@ end = struct
         wait_win32 ()
       | exception Finished (pid, status) -> (pid, status)
 
-    let wait =
-      if Sys.win32 then
-        wait_win32
-      else
-        Unix.wait
+    let wait = if Sys.win32 then wait_win32 else Unix.wait
 
     let waiting_for_slot = Queue.create ()
 
@@ -434,9 +425,8 @@ end = struct
       if Hashtbl.length running >= concurrency then (
         let ivar = Ivar.create () in
         Queue.push ivar waiting_for_slot;
-        Ivar.read ivar
-      ) else
-        return ()
+        Ivar.read ivar)
+      else return ()
 
     let restart_throttled () =
       while
@@ -464,10 +454,7 @@ end = struct
       throttle () >>= fun () ->
       let stdout_fn, stdout_fd = open_temp_file () in
       let stderr_fn, stderr_fd =
-        if split then
-          open_temp_file ()
-        else
-          (stdout_fn, stdout_fd)
+        if split then open_temp_file () else (stdout_fn, stdout_fd)
       in
       (match cwd with
       | Some x -> Sys.chdir x
@@ -486,12 +473,7 @@ end = struct
       Hashtbl.add running ~key:pid ~data:ivar;
       Ivar.read ivar >>= fun (status : Unix.process_status) ->
       let stdout_s = read_temp stdout_fn in
-      let stderr_s =
-        if split then
-          read_temp stderr_fn
-        else
-          stdout_s
-      in
+      let stderr_s = if split then read_temp stderr_fn else stdout_s in
       if stderr_s <> "" || status <> WEXITED 0 || verbose then (
         let cmdline = String.concat ~sep:" " (prog :: args) in
         let cmdline =
@@ -501,8 +483,7 @@ end = struct
         in
         prerr_endline cmdline;
         prerr_string stderr_s;
-        flush stderr
-      );
+        flush stderr);
       match status with
       | WEXITED 0 -> return (Ok stdout_s)
       | WEXITED n -> return (Error n)
@@ -536,8 +517,8 @@ end = struct
         Hashtbl.remove Process.running pid;
         Ivar.fill ivar status;
         Process.restart_throttled ();
-        loop ()
-      ) else
+        loop ())
+      else
         match !result with
         | Some x -> x
         | None -> fatal "bootstrap got stuck!"
@@ -572,6 +553,8 @@ module Config : sig
   val ocaml_config : unit -> string StringMap.t Fiber.t
 
   val output_complete_obj_arg : string
+
+  val unix_library_flags : string list
 end = struct
   let ocaml_version = Scanf.sscanf Sys.ocaml_version "%d.%d" (fun a b -> (a, b))
 
@@ -579,24 +562,12 @@ end = struct
 
   let best_prog dir prog =
     let fn = dir ^/ prog ^ ".opt" ^ exe in
-    if Sys.file_exists fn then
-      Some fn
+    if Sys.file_exists fn then Some fn
     else
       let fn = dir ^/ prog ^ exe in
-      if Sys.file_exists fn then
-        Some fn
-      else
-        None
+      if Sys.file_exists fn then Some fn else None
 
-  let find_prog prog =
-    let rec search = function
-      | [] -> None
-      | dir :: rest -> (
-        match best_prog dir prog with
-        | None -> search rest
-        | Some fn -> Some (dir, fn))
-    in
-    search path
+  let find_prog prog = find_prog ~f:(fun dir -> best_prog dir prog)
 
   let get_prog dir prog =
     match best_prog dir prog with
@@ -611,8 +582,7 @@ end = struct
              [ "-toolchain"; "secondary"; "query"; "ocaml" ])
       in
       match split_lines s with
-      | []
-      | _ :: _ :: _ ->
+      | [] | _ :: _ :: _ ->
         fatal "Unexpected output locating secondary compiler"
       | [ bin_dir ] -> (
         match best_prog bin_dir "ocamlc" with
@@ -631,9 +601,7 @@ end = struct
 
   let compiler, mode, ocaml_archive_ext =
     match (force_byte_compilation, best_prog bin_dir "ocamlopt") with
-    | true, _
-    | _, None ->
-      (ocamlc, Mode.Byte, ".cma")
+    | true, _ | _, None -> (ocamlc, Mode.Byte, ".cma")
     | false, Some path -> (path, Mode.Native, ".cmxa")
 
   let ocaml_config () =
@@ -646,10 +614,10 @@ end = struct
             (String.escaped line))
 
   let output_complete_obj_arg =
-    if ocaml_version < (4, 10) then
-      "-custom"
-    else
-      "-output-complete-exe"
+    if ocaml_version < (4, 10) then "-custom" else "-output-complete-exe"
+
+  let unix_library_flags =
+    if ocaml_version >= (5, 0) then [ "-I"; "+unix" ] else []
 end
 
 let insert_header fn ~header =
@@ -694,10 +662,10 @@ module Build_info = struct
     match from_dune_project with
     | Some _ -> Fiber.return from_dune_project
     | None -> (
-      if not (Sys.file_exists ".git") then
-        Fiber.return None
+      if not (Sys.file_exists ".git") then Fiber.return None
       else
-        Process.try_run_and_capture "git" [ "describe"; "--always"; "--dirty" ]
+        Process.try_run_and_capture "git"
+          [ "describe"; "--always"; "--dirty"; "--abbrev=7" ]
         >>| function
         | Some s -> Some (String.trim s)
         | None -> None)
@@ -726,7 +694,7 @@ module Build_info = struct
       List.map task.local_libraries ~f:(fun (name, _, _, _) ->
           (name, "version"))
       @ List.map task.external_libraries ~f:(fun name ->
-            (name, {|Some "[distributed with Ocaml]"|}))
+            (name, {|Some "[distributed with OCaml]"|}))
       |> List.sort ~cmp:(fun (a, _) (b, _) -> String.compare a b)
     in
     prlist "statically_linked_libraries" libs ~f:(fun (name, v) ->
@@ -740,6 +708,7 @@ end
 module Library = struct
   module File_kind = struct
     type t =
+      | Header
       | C
       | Ml
       | Mli
@@ -749,11 +718,9 @@ module Library = struct
     let analyse fn =
       let dn = Filename.dirname fn in
       let fn = Filename.basename fn in
-      let i =
-        try String.index fn '.' with
-        | Not_found -> String.length fn
-      in
+      let i = try String.index fn '.' with Not_found -> String.length fn in
       match String.sub fn ~pos:i ~len:(String.length fn - i) with
+      | ".h" -> Some Header
       | ".c" -> Some C
       | ".ml" -> Some Ml
       | ".mli" -> Some Mli
@@ -761,10 +728,7 @@ module Library = struct
       | ".mly" -> Some Mly
       | ".defaults.ml" ->
         let fn' = String.sub fn ~pos:0 ~len:i ^ ".ml" in
-        if Sys.file_exists (dn ^/ fn') then
-          None
-        else
-          Some Ml
+        if Sys.file_exists (dn ^/ fn') then None else Some Ml
       | _ -> None
   end
 
@@ -779,12 +743,10 @@ module Library = struct
       | None -> None
       | Some namespace ->
         let namespace = String.capitalize_ascii namespace in
-        if StringSet.equal modules (StringSet.singleton namespace) then
-          None
+        if StringSet.equal modules (StringSet.singleton namespace) then None
         else if StringSet.mem namespace modules then
           Some { toplevel_module = namespace; alias_module = namespace ^ "__" }
-        else
-          Some { toplevel_module = namespace; alias_module = namespace }
+        else Some { toplevel_module = namespace; alias_module = namespace }
 
     let mangle_filename t fn (kind : File_kind.t) =
       let base =
@@ -794,6 +756,7 @@ module Library = struct
       in
       match kind with
       | C -> base ^ ".c"
+      | Header -> base ^ ".h"
       | _ -> (
         let ext =
           match kind with
@@ -803,9 +766,9 @@ module Library = struct
         match t with
         | None -> base ^ ext
         | Some t ->
-          if String.capitalize_ascii base = t.toplevel_module then
-            base ^ ext
+          if String.capitalize_ascii base = t.toplevel_module then base ^ ext
           else
+            let base = String.capitalize_ascii base in
             String.uncapitalize_ascii t.toplevel_module ^ "__" ^ base ^ ext)
 
     let header t =
@@ -822,8 +785,7 @@ module Library = struct
         StringSet.iter
           (fun m ->
             if m <> t.toplevel_module then
-              fprintf oc "module %s = %s__%s\n" m t.toplevel_module
-                (String.uncapitalize_ascii m))
+              fprintf oc "module %s = %s__%s\n" m t.toplevel_module m)
           modules;
         close_out oc;
         Some fn
@@ -837,10 +799,7 @@ module Library = struct
       | file :: files ->
         let acc =
           if Sys.is_directory file then
-            if scan_subdirs then
-              loop (readdir file) acc
-            else
-              acc
+            if scan_subdirs then loop (readdir file) acc else acc
           else
             match File_kind.analyse file with
             | Some kind -> (file, kind) :: acc
@@ -855,11 +814,8 @@ module Library = struct
     let modules =
       List.fold_left files ~init:StringSet.empty ~f:(fun acc (fn, kind) ->
           match (kind : File_kind.t) with
-          | C -> acc
-          | Ml
-          | Mli
-          | Mll
-          | Mly ->
+          | Header | C -> acc
+          | Ml | Mli | Mll | Mly ->
             let module_name =
               let fn = Filename.basename fn in
               String.sub fn ~pos:0 ~len:(String.index fn '.')
@@ -880,12 +836,11 @@ module Library = struct
             let mangled = Wrapper.mangle_filename wrapper fn kind in
             let dst = build_dir ^/ mangled in
             match kind with
-            | C ->
-              copy fn dst;
+            | Header | C ->
+              copy "line" fn dst;
               Fiber.return [ mangled ]
-            | Ml
-            | Mli ->
-              copy fn dst ~header;
+            | Ml | Mli ->
+              copy "" fn dst ~header;
               Fiber.return [ mangled ]
             | Mll -> copy_lexer fn dst ~header >>> Fiber.return [ mangled ]
             | Mly ->
@@ -922,8 +877,7 @@ let ocamldep args =
       let colon = String.index line ':' in
       let filename = String.sub line ~pos:0 ~len:colon in
       let modules =
-        if colon = String.length line - 1 then
-          []
+        if colon = String.length line - 1 then []
         else
           let modules =
             String.sub line ~pos:(colon + 2)
@@ -940,21 +894,18 @@ let convert_dependencies ~all_source_files (file, dependencies) =
   let is_mli = Filename.check_suffix file ".mli" in
   let convert_module module_name =
     let filename = String.uncapitalize_ascii module_name in
-    if filename = Filename.chop_extension file then
-      (* Self-reference *)
+    if filename = Filename.chop_extension file then (* Self-reference *)
       None
     else if StringSet.mem (filename ^ ".mli") all_source_files then
       if (not is_mli) && StringSet.mem (filename ^ ".ml") all_source_files then
         (* We need to build the .ml for inlining info *)
         Some [ filename ^ ".mli"; filename ^ ".ml" ]
-      else
-        (* .mli files never depend on .ml files *)
+      else (* .mli files never depend on .ml files *)
         Some [ filename ^ ".mli" ]
     else if StringSet.mem (filename ^ ".ml") all_source_files then
       (* If there's no .mli, then we must always depend on the .ml *)
       Some [ filename ^ ".ml" ]
-    else
-      (* This is a module coming from an external library *)
+    else (* This is a module coming from an external library *)
       None
   in
   let dependencies =
@@ -964,8 +915,7 @@ let convert_dependencies ~all_source_files (file, dependencies) =
   let dependencies =
     if (not is_mli) && StringSet.mem (file ^ "i") all_source_files then
       (file ^ "i") :: dependencies
-    else
-      dependencies
+    else dependencies
   in
   (file, dependencies)
 
@@ -1001,8 +951,7 @@ let get_dependencies libraries =
     eprintf "***** Dependencies *****\n";
     List.iter deps ~f:(fun (fn, deps) ->
         eprintf "%s: %s\n" fn (String.concat deps ~sep:" "));
-    eprintf "**********\n"
-  );
+    eprintf "**********\n");
   deps
 
 let assemble_libraries { local_libraries; target = _, main; _ } =
@@ -1015,7 +964,7 @@ let assemble_libraries { local_libraries; target = _, main; _ } =
         String.capitalize_ascii
           (Filename.chop_extension (Filename.basename main))
       in
-      (dir, Some namespace, false, None)
+      (dir, Some namespace, true (* enable (include_subdirs unqualified *), None)
     in
     local_libraries @ [ task_lib ]
   in
@@ -1029,9 +978,8 @@ type status =
 let resolve_externals external_libraries =
   let external_libraries, external_includes =
     let convert = function
-      | "threads.posix" ->
-        ("threads" ^ Config.ocaml_archive_ext, [ "-I"; "+threads" ])
-      | "unix" -> ("unix" ^ Config.ocaml_archive_ext, [])
+      | "threads" -> ("threads" ^ Config.ocaml_archive_ext, [ "-I"; "+threads" ])
+      | "unix" -> ("unix" ^ Config.ocaml_archive_ext, Config.unix_library_flags)
       | s -> fatal "unhandled external library %s" s
     in
     let externals = List.map ~f:convert external_libraries in
@@ -1051,15 +999,14 @@ let sort_files dependencies ~main =
     if not (StringSet.mem file !seen) then (
       seen := StringSet.add file !seen;
       List.iter (Hashtbl.find deps_by_file file) ~f:loop;
-      res := file :: !res
-    )
+      res := file :: !res)
   in
   loop (Filename.basename main);
   List.rev !res
 
 let common_build_args name ~external_includes ~external_libraries =
   List.concat
-    [ [ "-o"; Filename.concat ".." (name ^ ".exe"); "-g" ]
+    [ [ "-o"; Filename.concat "../_boot" (name ^ ".exe"); "-g" ]
     ; (match Config.mode with
       | Byte -> [ Config.output_complete_obj_arg ]
       | Native -> [])
@@ -1067,11 +1014,12 @@ let common_build_args name ~external_includes ~external_libraries =
     ; external_libraries
     ]
 
-let build ~ocaml_config ~dependencies ~c_files
+let allow_unstable_sources = [ "-alert"; "-unstable" ]
+
+let build ~ocaml_config ~dependencies ~c_files ~link_flags
     { target = name, main; external_libraries; _ } =
   let ext_obj =
-    try StringMap.find "ext_obj" ocaml_config with
-    | Not_found -> ".o"
+    try StringMap.find "ext_obj" ocaml_config with Not_found -> ".o"
   in
   let external_libraries, external_includes =
     resolve_externals external_libraries
@@ -1097,7 +1045,8 @@ let build ~ocaml_config ~dependencies ~c_files
              Fiber.parallel_iter deps ~f:build >>= fun () ->
              Process.run ~cwd:build_dir Config.compiler
                (List.concat
-                  [ [ "-c"; "-g"; "-no-alias-deps"; "-w"; "-49" ]
+                  [ [ "-c"; "-g"; "-no-alias-deps"; "-w"; "-49-6" ]
+                  ; allow_unstable_sources
                   ; external_includes
                   ; [ file ]
                   ]))));
@@ -1126,9 +1075,11 @@ let build ~ocaml_config ~dependencies ~c_files
        [ common_build_args name ~external_includes ~external_libraries
        ; obj_files
        ; [ "-args"; "compiled_ml_files" ]
+       ; link_flags
+       ; allow_unstable_sources
        ])
 
-let build_with_single_command ~ocaml_config:_ ~dependencies ~c_files
+let build_with_single_command ~ocaml_config:_ ~dependencies ~c_files ~link_flags
     { target = name, main; external_libraries; _ } =
   let external_libraries, external_includes =
     resolve_externals external_libraries
@@ -1137,35 +1088,44 @@ let build_with_single_command ~ocaml_config:_ ~dependencies ~c_files
   Process.run ~cwd:build_dir Config.compiler
     (List.concat
        [ common_build_args name ~external_includes ~external_libraries
-       ; [ "-no-alias-deps"; "-w"; "-49" ]
+       ; [ "-no-alias-deps"; "-w"; "-49-6" ]
        ; c_files
-       ; [ "-args"; "mods_list" ]
+       ; [ "-args"; "mods_list" ] @ link_flags
+       ; allow_unstable_sources
        ])
 
 let rec rm_rf fn =
   match Unix.lstat fn with
   | { st_kind = S_DIR; _ } ->
-    List.iter (readdir fn) ~f:rm_rf;
+    clear fn;
     Unix.rmdir fn
   | _ -> Unix.unlink fn
   | exception Unix.Unix_error (ENOENT, _, _) -> ()
 
+and clear dir = List.iter (readdir dir) ~f:rm_rf
+
 (** {2 Bootstrap process} *)
 let main () =
-  rm_rf build_dir;
-  Unix.mkdir build_dir 0o777;
+  (try clear build_dir with Sys_error _ -> ());
+  (try Unix.mkdir build_dir 0o777
+   with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
   Config.ocaml_config () >>= fun ocaml_config ->
   assemble_libraries task >>= fun libraries ->
   let c_files =
     List.map ~f:(fun (_, _, c_files) -> c_files) libraries |> List.concat
   in
   get_dependencies libraries >>= fun dependencies ->
-  let build =
-    if concurrency = 1 || Sys.win32 then
-      build_with_single_command
-    else
-      build
+  let link_flags =
+    match StringMap.find_opt "system" ocaml_config with
+    | None -> assert false
+    | Some platform -> (
+      match List.assoc_opt platform Libs.link_flags with
+      | None -> []
+      | Some flags -> flags)
   in
-  build ~ocaml_config ~dependencies ~c_files task
+  let build =
+    if concurrency = 1 || Sys.win32 then build_with_single_command else build
+  in
+  build ~ocaml_config ~dependencies ~c_files ~link_flags task
 
 let () = Fiber.run (main ())

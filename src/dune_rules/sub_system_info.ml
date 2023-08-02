@@ -1,8 +1,9 @@
-open! Dune_engine
-open Stdune
+open Import
 open Dune_lang.Decoder
 
 type t = ..
+
+let equal (x : t) (y : t) = x == y
 
 type sub_system = t = ..
 
@@ -24,7 +25,7 @@ end
 
 (* This mutable table is safe under the assumption that subsystems are
    registered at the top level, which is currently true. *)
-let all = Sub_system_name.Table.create ~default_value:None
+let all = Table.create (module Sub_system_name) 16
 
 (* For parsing config files in the workspace *)
 let record_parser = ref return
@@ -33,12 +34,12 @@ module Register (M : S) : sig end = struct
   open M
 
   let () =
-    match Sub_system_name.Table.get all name with
+    match Table.find all name with
     | Some _ ->
       Code_error.raise "Sub_system_info.register: already registered"
-        [ ("name", Dyn.Encoder.string (Sub_system_name.to_string name)) ]
+        [ ("name", Dyn.string (Sub_system_name.to_string name)) ]
     | None -> (
-      Sub_system_name.Table.set all ~key:name ~data:(Some (module M : S));
+      Table.set all name (module M : S);
       let p = !record_parser in
       let name_s = Sub_system_name.to_string name in
       record_parser :=
@@ -52,4 +53,4 @@ end
 
 let record_parser () = !record_parser Sub_system_name.Map.empty
 
-let get name = Option.value_exn (Sub_system_name.Table.get all name)
+let get name = Table.find_exn all name

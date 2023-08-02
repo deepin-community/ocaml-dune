@@ -1,13 +1,19 @@
-open! Dune_engine
-open! Stdune
+open Import
+module T = Lib_name
+include T
 
-include
-  Interned.Make
-    (struct
-      let initial_size = 16
+include Stringlike.Make (struct
+  include T
 
-      let resize_policy = Interned.Conservative
+  let module_ = "Sub_system_name"
 
-      let order = Interned.Natural
-    end)
-    ()
+  let description = "the name of subsystems"
+
+  let description_of_valid_string = None
+
+  let hint_valid = None
+
+  let of_string_opt = Lib_name.of_string_opt
+end)
+
+include Comparable.Make (T)

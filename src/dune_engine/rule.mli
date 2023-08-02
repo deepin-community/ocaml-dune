@@ -1,13 +1,14 @@
 (** Representation of rules *)
 
-open! Stdune
-open! Import
+open Import
+module Action_builder := Action_builder0
 
+(** Information about the provenance of a build rule. *)
 module Info : sig
   type t =
     | From_dune_file of Loc.t
     | Internal
-    | Source_file_copy
+    | Source_file_copy of Path.Source.t
 
   val of_loc_opt : Loc.t option -> t
 end
@@ -15,8 +16,8 @@ end
 module Promote : sig
   module Lifetime : sig
     type t =
-      | Unlimited  (** The promoted file will be deleted by [dune clean] *)
-      | Until_clean
+      | Unlimited
+      | Until_clean  (** The promoted file will be deleted by [dune clean] *)
   end
 
   module Into : sig
@@ -29,19 +30,20 @@ module Promote : sig
   type t =
     { lifetime : Lifetime.t
     ; into : Into.t option
-    ; only : Predicate_lang.Glob.t option
+    ; only : Filename.t Predicate.t option
     }
 end
 
 module Mode : sig
   type t =
-    | Standard  (** Only use this rule if the source files don't exist. *)
-    | Fallback  (** Silently promote the targets to the source tree. *)
+    | Standard
+    | Fallback  (** Only use this rule if the source files don't exist. *)
     | Promote of Promote.t
+        (** Silently promote the targets to the source tree. *)
+    | Ignore_source_files
         (** Just ignore the source files entirely. This is for cases where the
             targets are promoted only in a specific context, such as for
             .install files. *)
-    | Ignore_source_files
 end
 
 module Id : sig
@@ -49,23 +51,21 @@ module Id : sig
 
   val compare : t -> t -> Ordering.t
 
-  module Map : Map.S with type key = t
-
-  module Set : Set.S with type elt = t
+  include Comparable_intf.S with type key := t
 end
 
 type t = private
   { id : Id.t
   ; context : Build_context.t option
-  ; env : Env.t option
-  ; action : Action.t Build.With_targets.t
+  ; targets : Targets.Validated.t
+  ; action : Action.Full.t Action_builder.t
   ; mode : Mode.t
-  ; locks : Path.t list
   ; info : Info.t
-  ; (* Directory where all the targets are produced. *) dir : Path.Build.t
+  ; loc : Loc.t
+  ; dir : Path.Build.t  (** Directory where all the targets are produced. *)
   }
 
-module Set : Set.S with type elt = t
+include Comparable_intf.S with type key := t
 
 val equal : t -> t -> bool
 
@@ -73,23 +73,30 @@ val hash : t -> int
 
 val to_dyn : t -> Dyn.t
 
+(** [make] raises an error if the set of [targets] is not well-formed. See the
+    [Targets.Validation_result] data type for the list of possible problems. *)
 val make :
-     ?sandbox:Sandbox_config.t
-  -> ?mode:Mode.t
+     ?mode:Mode.t
   -> context:Build_context.t option
-  -> env:Env.t option
-  -> ?locks:Path.t list
   -> ?info:Info.t
-  -> Action.t Build.With_targets.t
+  -> targets:Targets.t
+  -> Action.Full.t Action_builder.t
   -> t
 
-val with_prefix : t -> build:unit Build.t -> t
+val set_action : t -> Action.Full.t Action_builder.t -> t
 
 val loc : t -> Loc.t
 
-val effective_env : t -> Env.t
-
-(** [find_source_dir rule] is the closest source directory corresponding to
-    rule.dir. Eg. [src/dune] for a rule with dir
-    [_build/default/src/dune/.dune.objs]. *)
-val find_source_dir : t -> File_tree.Dir.t
+module Anonymous_action : sig
+  (* jeremiedimino: this type correspond to a subset of [Rule.t]. We should
+     eventually share the code. *)
+  type t =
+    { context : Build_context.t option
+    ; action : Action.Full.t
+    ; loc : Loc.t option
+    ; dir : Path.Build.t
+          (** Directory the action is attached to. This is the directory where
+              the outcome of the action will be cached. *)
+    ; alias : Alias.Name.t option  (** For better error messages *)
+    }
+end

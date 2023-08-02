@@ -1,10 +1,18 @@
 (** OCaml sources *)
-open! Dune_engine
 
 (** This module encapsulates the structure of source files in a particular
     directory. *)
 
 open Import
+
+module Origin : sig
+  type t =
+    | Library of Dune_file.Library.t
+    | Executables of Dune_file.Executables.t
+    | Melange of Melange_stanzas.Emit.t
+
+  val loc : t -> Loc.t
+end
 
 module Artifacts : sig
   type t
@@ -17,7 +25,7 @@ end
 
 type t
 
-val artifacts : t -> Artifacts.t
+val artifacts : t -> Artifacts.t Memo.t
 
 type for_ =
   | Library of Lib_name.t  (** Library name *)
@@ -25,14 +33,15 @@ type for_ =
       { first_exe : string
             (** Name of first executable appearing in executables stanza *)
       }
+  | Melange of { target : string }
 
 val modules_and_obj_dir : t -> for_:for_ -> Modules.t * Path.Build.t Obj_dir.t
 
-(** Modules attached to a library or executable.*)
+(** Modules attached to a library, executable, or melange.emit stanza.*)
 val modules : t -> for_:for_ -> Modules.t
 
-(** Find out what buildable a module is part of *)
-val lookup_module : t -> Module_name.t -> Dune_file.Buildable.t option
+(** Find out the origin of the stanza for a given module *)
+val find_origin : t -> Module_name.t -> Origin.t option
 
 val empty : t
 
@@ -44,10 +53,12 @@ val empty : t
     with the correct [kind] *)
 
 val make :
-     Stanza.t list Dir_with_dune.t
+     Dune_file.t
+  -> dir:Path.Build.t
+  -> scope:Scope.t
   -> lib_config:Lib_config.t
   -> loc:Loc.t
-  -> lookup_vlib:(dir:Path.Build.t -> t)
+  -> lookup_vlib:(loc:Loc.t -> dir:Path.Build.t -> t Memo.t)
   -> include_subdirs:Loc.t * Dune_file.Include_subdirs.t
-  -> dirs:(Path.Build.t * 'a list * String.Set.t) list
-  -> t
+  -> dirs:(Path.Build.t * string list * Filename.Set.t) list
+  -> t Memo.t

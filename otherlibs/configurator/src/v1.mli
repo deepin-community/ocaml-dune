@@ -38,11 +38,10 @@ module C_define : sig
 
   (** Import some #define from the given header files. For instance:
 
-      {[
-        # C.C_define.import c ~includes:"caml/config.h" ["ARCH_SIXTYFOUR",
-        Switch];; - (string * Configurator.C_define.Value.t) list =
-        ["ARCH_SIXTYFOUR", Switch true]
-      ]} *)
+      {v
+        # C.C_define.import c ~includes:"caml/config.h" ["ARCH_SIXTYFOUR", Switch];;
+        - (string * Configurator.C_define.Value.t) list = ["ARCH_SIXTYFOUR", Switch true]
+      v} *)
   val import :
        t
     -> ?prelude:string
@@ -56,7 +55,9 @@ module C_define : sig
   (** Generate a C header file containing the following #define.
       [protection_var] is used to enclose the file with:
 
-      {[ #ifndef BLAH #define BLAH ... #endif ]}
+      {[
+        #ifndef BLAH #define BLAH ... #endif
+      ]}
 
       If not specified, it is inferred from the name given to [create] and the
       filename. *)
@@ -73,7 +74,8 @@ module Pkg_config : sig
 
   type t
 
-  (** Search pkg-config in the PATH. Returns [None] if pkg-config is not found. *)
+  (** Search pkg-config in PATH. Prefers the [PKG_CONFIG_PATH] environment
+      variable if set. Returns [None] if pkg-config is not found. *)
   val get : configurator -> t option
 
   type package_conf =
@@ -83,8 +85,9 @@ module Pkg_config : sig
 
   (** [query t ~package] query pkg-config for the [package]. The package must
       not contain a version constraint. Multiple, unversioned packages are
-      separated with spaces, for example "gtk+-3.0 gtksourceview-3.0". Returns
-      [None] if [package] is not available *)
+      separated with spaces, for example "gtk+-3.0 gtksourceview-3.0". If set,
+      the [PKG_CONFIG_ARGN] environment variable specifies a list of arguments
+      to pass to pkg-config. Returns [None] if [package] is not available *)
   val query : t -> package:string -> package_conf option
 
   val query_expr : t -> package:string -> expr:string -> package_conf option
@@ -93,8 +96,9 @@ module Pkg_config : sig
   (** [query_expr_err t ~package ~expr] query pkg-config for the [package].
       [expr] may contain a version constraint, for example "gtk+-3.0 >= 3.18".
       [package] must be just the name of the package. If [expr] is specified,
-      [package] must be specified as well. Returns [Error error_msg] if
-      [package] is not available *)
+      [package] must be specified as well. If set, the [PKG_CONFIG_ARGN]
+      environment variable specifies a list of arguments to pass to pkg-config.
+      Returns [Error error_msg] if [package] is not available *)
   val query_expr_err :
     t -> package:string -> expr:string -> (package_conf, string) result
 end
@@ -144,8 +148,9 @@ module Process : sig
       logged.
 
       @param dir change to [dir] before running the command.
-      @param env specify additional environment variables as a list of the form
-      NAME=VALUE. *)
+      @param env
+        specify additional environment variables as a list of the form
+        NAME=VALUE. *)
   val run :
     t -> ?dir:string -> ?env:string list -> string -> string list -> result
 
