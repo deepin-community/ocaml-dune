@@ -7,16 +7,17 @@
 
 include /usr/share/ocaml/ocamlvars.mk
 
-export DESTDIR=$(CURDIR)/debian/tmp
-export PREFIX=/usr
-export LIBDIR=..$(OCAML_STDLIB_DIR)
+DESTDIR=$(CURDIR)/debian/tmp
+
+DEB_DUNE_OTHER_PACKAGES := dune-private-libs dune-configurator dune-build-info dune-site stdune xdg dyn ordering
+
+DEB_DUNE_ALL_PACKAGES := dune
+ifeq (,$(filter pkg.ocaml-dune.bootstrap,$(DEB_BUILD_PROFILES)))
+DEB_DUNE_ALL_PACKAGES += $(DEB_DUNE_OTHER_PACKAGES)
+endif
 
 %:
 	dh $@ --with ocaml
-
-override_dh_auto_clean:
-	dh_auto_clean
-	rm -rf _tmp
 
 override_dh_auto_configure:
 	./configure --libdir $(OCAML_STDLIB_DIR)
@@ -24,13 +25,16 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	ocaml boot/bootstrap.ml
 	./dune.exe build --profile dune-bootstrap dune.install
-	./dune.exe build stdune.install dune-private-libs.install dune-configurator.install xdg.install
+ifeq (,$(filter pkg.ocaml-dune.bootstrap,$(DEB_BUILD_PROFILES)))
+	./dune.exe build $(addsuffix .install,$(DEB_DUNE_OTHER_PACKAGES))
+endif
 
 override_dh_auto_install:
-	./dune.exe install --destdir=$(CURDIR)/_tmp --prefix=/usr --libdir=$(OCAML_STDLIB_DIR) dune dune-private-libs dune-configurator stdune xdg
-	rm -rf debian/tmp
-	cp -a _tmp debian/tmp
-	rm -rf debian/tmp/usr/doc/dune-private-libs debian/tmp/usr/doc/dune-configurator debian/tmp/usr/doc/stdune debian/tmp/usr/doc/xdg debian/tmp/usr/doc/dune/LICENSE.md
+	./dune.exe install --destdir=$(DESTDIR) --prefix=/usr --libdir=$(OCAML_STDLIB_DIR) $(DEB_DUNE_ALL_PACKAGES)
+ifeq (,$(filter pkg.ocaml-dune.bootstrap,$(DEB_BUILD_PROFILES)))
+	rm -rf $(addprefix debian/tmp/usr/doc/,$(DEB_DUNE_OTHER_PACKAGES))
+endif
+	rm -f debian/tmp/usr/doc/dune/LICENSE.md
 
 override_dh_auto_test:
 # Upstream tests assume opam is installed; skip them

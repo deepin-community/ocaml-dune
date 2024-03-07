@@ -6,5 +6,10 @@ open Import
 val module_names : Menhir_stanza.t -> Module_name.t list
 
 (** Generate the rules for a [(menhir ...)] stanza. *)
-val gen_rules :
-  dir:Path.Build.t -> Compilation_context.t -> Menhir_stanza.t -> unit Memo.t
+val gen_rules
+  :  dir:Path.Build.t
+  -> Compilation_context.t
+  -> Menhir_stanza.t
+  -> unit Memo.t
+
+val menhir_env : dir:Path.Build.t -> string list Action_builder.t Menhir_env.t Memo.t

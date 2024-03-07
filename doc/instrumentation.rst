@@ -2,6 +2,14 @@
 Instrumentation
 ***************
 
+.. TODO(diataxis)
+
+   Split between:
+
+   - reference about ``(instrumentation)``
+   - :doc:`howto/code-coverage`
+   - specific reference about ``(instrumentation.backend)``
+
 In this section, we'll explain how to define and use instrumentation backends
 (such as ``bisect_ppx`` or ``landmarks``) so that you can enable and disable
 coverage via ``dune-workspace`` files or by passing a command-line flag or
@@ -66,14 +74,14 @@ Activating an instrumentation backend can be done via the command line or the
 
 Via the command line, it is done as follows:
 
-.. code:: bash
+.. code:: console
 
    $ dune build --instrument-with <names>
 
 Here ``<names>`` is a comma-separated list of instrumentation backends. For
 example:
 
-.. code:: bash
+.. code:: console
 
    $ dune build --instrument-with bisect_ppx,landmarks
 
@@ -88,14 +96,14 @@ To enable an instrumentation backend globally, type the following in your
 
 .. code:: dune
 
-   (lang dune 3.9)
+   (lang dune 3.14)
    (instrument_with bisect_ppx)
 
 or for each context individually:
 
 .. code:: dune
 
-   (lang dune 3.9)
+   (lang dune 3.14)
    (context default)
    (context (default (name coverage) (instrument_with bisect_ppx)))
    (context (default (name profiling) (instrument_with landmarks)))

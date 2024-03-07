@@ -20,13 +20,12 @@ menhir \
 ocamlfind \
 ocamlformat.$$(awk -F = '$$1 == "version" {print $$2}' .ocamlformat) \
 "odoc>=2.0.1" \
-"ppx_expect.v0.15.0" \
+"ppx_expect>=v0.16.0" \
 ppx_inline_test \
 ppxlib \
 ctypes \
 "utop>=2.6.0" \
-"melange>=1.0.0" \
-"rescript-syntax"
+"melange>=3.0.0"
 # Dependencies recommended for developing dune locally,
 # but not wanted in CI
 DEV_DEPS := \
@@ -40,6 +39,10 @@ TEST_OCAMLVERSION := 4.14.1
 .PHONY: help
 help:
 	@cat doc/make-help.txt
+
+.PHONY: bootstrap
+bootstrap:
+	$(MAKE) -B $(BIN)
 
 .PHONY: release
 release: $(BIN)
@@ -216,7 +219,3 @@ docker-build-image:
 .PHONY: docker-compose
 docker-compose:
 	docker compose -f docker/dev.yml run dune bash
-
-.PHONY: bootstrap
-bootstrap:
-	$(BIN) build @install -p dune --profile dune-bootstrap

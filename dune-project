@@ -1,8 +1,9 @@
-(lang dune 3.5)
-;          ^^^
+(lang dune 3.12)
+;          ^^^^
 ; When changing the version, don't forget to regenerate *.opam files
 ; by running [dune build].
 (name dune)
+(version 3.14.0)
 
 (generate_opam_files true)
 
@@ -34,19 +35,19 @@
   (js_of_ocaml-compiler (< 3.6.0))
   (jbuilder (= transition)))
  (description "
-dune is a build system that was designed to simplify the release of
+Dune is a build system that was designed to simplify the release of
 Jane Street packages. It reads metadata from \"dune\" files following a
 very simple s-expression syntax.
 
-dune is fast, has very low-overhead, and supports parallel builds on
+Dune is fast, has very low-overhead, and supports parallel builds on
 all platforms. It has no system dependencies; all you need to build
 dune or packages using dune is OCaml. You don't need make or bash
 as long as the packages themselves don't use bash explicitly.
 
-dune supports multi-package development by simply dropping multiple
-repositories into the same directory.
+Dune is composable; supporting multi-package development by simply
+dropping multiple repositories into the same directory.
 
-It also supports multi-context builds, such as building against
+Dune also supports multi-context builds, such as building against
 several opam roots/switches simultaneously. This helps maintaining
 packages across several versions of OCaml and gives cross-compilation
 for free.
@@ -190,7 +191,7 @@ understood by dune language."))
   base-unix
   (dyn (= :version))
   (ordering (= :version))
-  (pp (>= 1.1.0))
+  (pp (>= 1.2.0))
   (csexp (>= 1.5.0)))
  (description "This library offers no backwards compatibility guarantees. Use at your own risk."))
 

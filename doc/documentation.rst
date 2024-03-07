@@ -4,6 +4,13 @@
 Generating Documentation
 ************************
 
+.. TODO(diataxis)
+
+   Split between:
+
+   - A "generating API documentation" how-to guide
+   - Some reference documentation
+
 Prerequisites
 =============
 
@@ -31,20 +38,20 @@ Building Documentation
 To generate documentation using the ``@doc`` alias, all that's required to is
 to build this alias:
 
-::
+.. code:: console
 
   $ dune build @doc
 
 An index page containing links to all the opam packages in your project can be
 found in:
 
-::
+.. code:: console
 
   $ open _build/default/_doc/_html/index.html
 
 Documentation for private libraries may also be built with:
 
-::
+.. code:: console
 
   $ dune build @doc-private
 
@@ -116,3 +123,15 @@ See :ref:`dune-env` for more details on the ``(env ...)`` stanza.
   field is available since Dune 2.4.0 and requires odoc_ 1.5.0.
 
 .. _odoc: https://github.com/ocaml-doc/odoc
+
+Local Documentation Search Using Sherlodoc
+==========================================
+
+If Sherlodoc is installed, generated HTML documentation will include a
+search bar. It supports search by name, documentation and fuzzy type search.
+
+In can be installed with:
+
+.. code:: console
+
+  $ opam install sherlodoc

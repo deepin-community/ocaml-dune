@@ -2,9 +2,9 @@
 
 open Import
 
-val rules :
-     sctx:Super_context.t
+val rules
+  :  sctx:Super_context.t
   -> expander:Expander.t
   -> dir:Path.Build.t
-  -> (Cram_test.t, Source_tree.Dir.error) result list
+  -> Source_tree.Dir.t
   -> unit Memo.t

@@ -47,14 +47,14 @@ and directories that is a descendant of directory `dir`".
 We can then narrow the mask to a sub-mask:
 
 ```ocaml
-val narrow : Target_mask.t -> unit Memo.Build.t -> unit Memo.Build.t
+val narrow : Target_mask.t -> unit Memo.t -> unit Memo.t
 ```
 
 With `narrow mask m`, `m` would only be allowed to produce rules whose
 target are matched by the intersection of `mask` and the current
 mask. `m` wouldn't be evaluated eagerly. Instead, `gen_rules` would
 now return a set of direct rules as well as a list of
-`(Target_mask.t * unit Memo.Build.t)`. Let's call such a pair a
+`(Target_mask.t * unit Memo.t)`. Let's call such a pair a
 suspension. A suspension can be forced by evaluation its second
 component. Doing so will yield a list of rules matched by the mask and
 a new list of suspension.
@@ -77,6 +77,6 @@ suspension.
 ### Difficulties
 
 Interpreting a `library` stanza requires knowing the set of `.ml`
-files in the current directrory. Knowing this requires interpreting
+files in the current directory. Knowing this requires interpreting
 `copy_files` in the current directory. So the interpretation of
 `library` stanzas will need to go under a `narrow` as well.

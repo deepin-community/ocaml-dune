@@ -1,3 +1,4 @@
-version=3
-opts=uversionmangle=s/\.beta/~beta/ \
-https://github.com/ocaml/dune/tags .*/v?([0-9.]+)\.tar\.gz
+version=4
+opts="searchmode=plain, uversionmangle=s/\.(alpha|beta)/~$1/" \
+https://api.github.com/repos/ocaml/dune/releases?per_page=50 \
+https://github.com/ocaml/dune/releases/download/[^/]+/dune-@ANY_VERSION@.tbz

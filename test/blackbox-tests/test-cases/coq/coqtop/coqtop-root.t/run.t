@@ -3,6 +3,8 @@ All dune commands work when you run them in sub-directories, so this should be n
   $ dune coq top --toplevel=echo -- theories/foo.v | ../../scrub_coq_args.sh
   Warning: Coq Language Versions lower than 0.8 have been deprecated in Dune
   3.8 and will be removed in an upcoming Dune version.
+  Hint: To disable this warning, add the following to your dune-project file:
+  (warnings (deprecated_coq_lang_lt_08 disabled))
   -topfile $TESTCASE_ROOT/_build/default/theories/foo.v
   -w -deprecated-native-compiler-option
   -w -native-compiler-disabled
@@ -34,9 +36,10 @@ All dune commands work when you run them in sub-directories, so this should be n
 
 This test is currently broken due to the workspace resolution being faulty #5899.
   $ dune coq top --toplevel=echo -- foo.v
-  Warning: No dune-project file has been found. A default one is assumed but
-  the project might break when dune is upgraded. Please create a dune-project
-  file.
+  File ".", line 1, characters 0-0:
+  Warning: No dune-project file has been found in directory ".". A default one
+  is assumed but the project might break when dune is upgraded. Please create a
+  dune-project file.
   Hint: generate the project file with: $ dune init project <name>
   File "dune", line 1, characters 0-24:
   1 | (coq.theory

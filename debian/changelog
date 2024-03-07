@@ -1,3 +1,31 @@
+ocaml-dune (3.14.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Stéphane Glondu <glondu@debian.org>  Wed, 14 Feb 2024 17:05:24 +0100
+
+ocaml-dune (3.11.1-1) unstable; urgency=medium
+
+  * New upstream release
+    - fix: --ignore-promoted-rules should work on internal rules
+      (Closes: #1050003)
+
+ -- Stéphane Glondu <glondu@debian.org>  Sat, 14 Oct 2023 09:50:48 +0200
+
+ocaml-dune (3.10.0-2) unstable; urgency=medium
+
+  * Build dune-build-info, dune-site, dyn and ordering
+
+ -- Stéphane Glondu <glondu@debian.org>  Fri, 06 Oct 2023 06:40:44 +0200
+
+ocaml-dune (3.10.0-1) unstable; urgency=medium
+
+  * New upstream release
+  * Simplify debian/rules
+  * Update debian/watch
+
+ -- Stéphane Glondu <glondu@debian.org>  Sat, 26 Aug 2023 07:28:27 +0200
+
 ocaml-dune (3.9.1-1) unstable; urgency=medium
 
   * New upstream release

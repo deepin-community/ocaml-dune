@@ -1,10 +1,10 @@
 Test that we can set variables
 
-  $ mkdir dune.lock
-  $ cat >dune.lock/lock.dune <<EOF
-  > (lang package 0.1)
-  > EOF
+  $ . ./helpers.sh
+
+  $ make_lockdir
   $ cat >dune.lock/test.pkg <<EOF
+  > (version 0.0.1)
   > (build
   >  (system "\| cat >test.config <<EOF
   >          "\| opam-version: "2.0"
@@ -12,32 +12,60 @@ Test that we can set variables
   >          "\|   abool: true
   >          "\|   astring: "foobar"
   >          "\|   somestrings: ["foo" "bar"]
+  >          "\|   version: "1.2.3"
   >          "\| }
   >          "\| EOF
   >  ))
   > EOF
 
   $ cat >dune.lock/usetest.pkg <<EOF
-  > (deps test)
+  > (version 0.0.1)
+  > (depends test)
   > (build
   >  (progn
-  >   (system "\| echo %{pkg:var:test:abool}
-  >           "\| echo %{pkg:var:test:astring}
-  >           "\| echo %{pkg:var:test:somestrings}
+  >   (system "\| echo abool: %{pkg:test:abool}
+  >           "\| echo astring: %{pkg:test:astring}
+  >           "\| echo somestrings: %{pkg:test:somestrings}
+  >           "\| echo share path: %{pkg:test:share}
+  >           "\| echo version: %{pkg:test:version}
   >   )
   >   (run mkdir -p %{prefix})))
   > EOF
 
-  $ dune build .pkg/usetest/target/
-  true
-  foobar
-  foo bar
+  $ build_pkg usetest
+  abool: true
+  astring: foobar
+  somestrings: foo bar
+  share path: ../../test/target/share/test
+  version: 1.2.3
 
-  $ dune internal dump _build/default/.pkg/test/target/cookie
+  $ show_pkg_cookie test
   { files = map {}
   ; variables =
       [ ("abool", Bool true)
       ; ("astring", String "foobar")
       ; ("somestrings", Strings [ "foo"; "bar" ])
+      ; ("version", String "1.2.3")
       ]
   }
+
+Now we demonstrate we get a proper error from invalid .config files:
+
+  $ cat >dune.lock/test.pkg <<EOF
+  > (version 0.0.1)
+  > (build
+  >  (system "\| cat >test.config <<EOF
+  >          "\| this is dummy text
+  >          "\| EOF
+  >  ))
+  > EOF
+
+  $ build_pkg test 2>&1 | sed 's/File .*:/File $REDACTED:/'
+  Error:
+  File $REDACTED:
+  1 | this is dummy text
+           ^^
+  Error parsing test.config
+  Reason: Parse error
+  -> required by _build/_private/default/.pkg/test/target/cookie
+  -> required by - package usetest

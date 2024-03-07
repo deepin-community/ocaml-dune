@@ -1,11 +1,11 @@
 Test missing entries in the .install file
 
-  $ mkdir dune.lock
-  $ cat >dune.lock/lock.dune <<EOF
-  > (lang package 0.1)
-  > EOF
+  $ . ./helpers.sh
+
+  $ make_lockdir
   $ lockfile() {
   > cat >dune.lock/test.pkg <<EOF
+  > (version 0.0.1)
   > (build
   >  (system "echo 'lib: [ \"$1\" ]' > test.install"))
   > EOF
@@ -14,12 +14,15 @@ Test missing entries in the .install file
 This should give us a proper error that myfile wasn't generated
 
   $ lockfile "myfile"
-  $ dune build .pkg/test/target/
-  Error: No such file or directory
-  -> required by _build/default/.pkg/test/target
-  [1]
+  $ build_pkg test 2>&1 | sed 's#_build.*_private#$ROOT/_private#'
+  Error: entry
+  $ROOT/_private/default/.pkg/test/source/myfile
+  in
+  $ROOT/_private/default/.pkg/test/source/test.install
+  does not exist
+  -> required by $ROOT/_private/default/.pkg/test/target/cookie
 
 This on the other hand shouldn't error because myfile is optional
 
   $ lockfile "?myfile"
-  $ dune build .pkg/test/target/
+  $ build_pkg test
