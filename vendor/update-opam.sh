@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-version=d261e3d4a487f0346dffdf6eadd868095a7d128f
+version=7c05922290adb214f834d9e0f1efe7028c4ebb85
 
 set -e -o pipefail
 
@@ -173,6 +173,19 @@ index 2857654a9..53f11d870 100644
  let log fmt = OpamConsole.log "XSYS" fmt
  
  (* Run commands *)
+
+diff --git a/vendor/opam/src/format/opamFilter.mli b/vendor/opam/src/format/opamFilter.mli
+index a2f01d179..1787b24b1 100644
+--- a/vendor/opam/src/format/opamFilter.mli
++++ b/vendor/opam/src/format/opamFilter.mli
+@@ -8,6 +8,7 @@
+ (*  exception on linking described in the file LICENSE.                   *)
+ (*                                                                        *)
+ (**************************************************************************)
++module Re = Dune_re
+
+ (** Formulas on variables, as used in opam files build scripts
+
 EOF
 
 for subpackage in core repository format state
@@ -180,7 +193,7 @@ do
     PKG=opam/src/$subpackage/
     mkdir -p $PKG
     set +e
-    cp -v $SRC/src/$subpackage/*.{ml,mli,mll,mly} $PKG
+    cp -v $SRC/src/$subpackage/*.{ml,mli,mll,mly,c} $PKG
     set -e
     git checkout $PKG/dune
 done

@@ -8,7 +8,8 @@
       inputs.flake-utils.follows = "flake-utils";
     };
     melange = {
-      url = "github:melange-re/melange";
+      # When moving the compiler tests to OCaml 5.1, change to v3-51
+      url = "github:melange-re/melange/v3-414";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
@@ -19,7 +20,7 @@
     , nixpkgs
     , ocamllsp
     , melange
-    }@inputs:
+    }:
     let package = "dune";
     in flake-utils.lib.eachDefaultSystem (system:
     let
@@ -76,7 +77,11 @@
         let
           pkgs = nixpkgs.legacyPackages.${system}.appendOverlays [
             (self: super: {
-              ocamlPackages = self.ocaml-ng.ocamlPackages_4_14;
+              ocamlPackages = self.ocaml-ng.ocamlPackages_4_14.overrideScope' (oself: osuper: {
+                utop = osuper.utop.overrideAttrs {
+                  dontGzipMan = true;
+                };
+              });
             })
             melange.overlays.default
           ];
@@ -164,7 +169,6 @@
           slim-melange = makeDuneDevShell {
             extraBuildInputs = [
               pkgs.ocamlPackages.melange
-              pkgs.ocamlPackages.rescript-syntax
             ];
             meta.description = ''
               Provides a minimal shell environment built purely from nixpkgs
@@ -213,7 +217,6 @@
               ]) ++ (with pkgs.ocamlPackages; [
                 ocamllsp.outputs.packages.${system}.default
                 pkgs.ocamlPackages.melange
-                rescript-syntax
                 js_of_ocaml-compiler
                 js_of_ocaml
                 utop

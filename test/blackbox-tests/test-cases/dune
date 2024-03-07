@@ -6,7 +6,10 @@
   (binaries
    ../utils/dune_cmd.exe
    ../utils/dunepp.exe
-   ../utils/melc_stdlib_prefix.exe)))
+   ../utils/melc_stdlib_prefix.exe
+   ../utils/refmt.exe
+   ../utils/webserver_oneshot.exe
+   ../utils/sherlodoc.exe)))
 
 (cram
  (applies_to pp-cwd)
@@ -80,12 +83,6 @@
    (<> %{ocaml-config:system} macosx)
    (<> %{ocaml-config:system} win))))
 
-(cram
- (applies_to ppx-rewriter)
- (deps
-  (package ppxlib)
-  %{bin:ocamlfind}))
-
 (subdir
  cram
  ;  mac has a different sh error message
@@ -103,7 +100,7 @@
 (subdir
  github3766.t
  (executable
-  (libraries stdune spawn)
+  (libraries stdune spawn unix)
   (name test)))
 
 (subdir
@@ -118,12 +115,6 @@
   (<> %{system} macosx)))
 
 (cram
- (applies_to github6607)
- (deps
-  (package stdune)
-  (package ppx_expect)))
-
-(cram
  (applies_to link-time-transitive-deps)
  (deps
   (package dune-build-info)))
@@ -136,4 +127,14 @@
  (applies_to github8041)
  (enabled_if
   (= %{system} linux))
- (deps %{bin:strace}))
+ (deps %{bin:strace} %{bin:head}))
+
+(cram
+ (applies_to reason)
+ (deps %{bin:refmt}))
+
+(cram
+ (applies_to github4194)
+ (enabled_if
+  (not %{arch_sixtyfour}))
+ (deps %{bin:ocaml}))

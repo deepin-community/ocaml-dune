@@ -4,12 +4,11 @@
 
 open Import
 
-val promote :
-     dir:Path.Build.t
-  -> targets:Digest.t Targets.Produced.t
+val promote
+  :  targets:Digest.t Targets.Produced.t
   -> promote:Rule.Promote.t
   -> promote_source:
-       (   chmod:(int -> int)
+       (chmod:(int -> int)
         -> delete_dst_if_it_is_a_directory:bool
         -> src:Path.Build.t
         -> dst:Path.Source.t

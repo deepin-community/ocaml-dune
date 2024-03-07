@@ -13,6 +13,9 @@ Here we observe the documentation for the dune cache commands.
          functionality soon.
   
   COMMANDS
+         clear [OPTION]…
+             Clear the Dune cache.
+  
          size [--machine-readable] [OPTION]…
              Query the size of the Dune cache.
   
@@ -29,7 +32,7 @@ Here we observe the documentation for the dune cache commands.
              Show version information.
   
   EXIT STATUS
-         cache exits with the following status:
+         dune cache exits with:
   
          0   on success.
   
@@ -67,7 +70,7 @@ Testing the output of `dune cache size --machine-readable`
              Show version information.
   
   EXIT STATUS
-         size exits with the following status:
+         dune cache size exits with:
   
          0   on success.
   
@@ -91,10 +94,12 @@ Testing the output of dune cache trim.
   
   OPTIONS
          --size=BYTES
-             Size to trim the cache to.
+             Size to trim the cache to. BYTES is the number of bytes followed
+             by a unit. Byte units can be one of B, kB, KiB, MB, MiB, GB, GiB,
+             TB or TiB.
   
          --trimmed-size=BYTES
-             Size to trim from the cache.
+             Size to trim from the cache. BYTES is the same as for --size.
   
   COMMON OPTIONS
          --help[=FMT] (default=auto)
@@ -106,7 +111,7 @@ Testing the output of dune cache trim.
              Show version information.
   
   EXIT STATUS
-         trim exits with the following status:
+         dune cache trim exits with:
   
          0   on success.
   
@@ -117,11 +122,11 @@ Testing the output of dune cache trim.
   EXAMPLES
          Trimming the Dune cache to 1 GB.
          
-                    $ dune cache trim --trimmed-size=1GB 
+                    $ dune cache trim --size=1GB 
   
          Trimming 500 MB from the Dune cache.
          
-                    $ dune cache trim --size=500MB 
+                    $ dune cache trim --trimmed-size=500MB 
   
   SEE ALSO
          dune(1)

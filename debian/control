@@ -5,8 +5,7 @@ Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stéphane Glondu <glondu@debian.org>
 Build-Depends:
  debhelper-compat (= 13),
- ocaml-nox,
- libcsexp-ocaml-dev <!pkg.ocaml-dune.nocsexp>,
+ ocaml,
  dh-ocaml
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
@@ -33,10 +32,12 @@ Description: composable build system for OCaml projects
  and takes care of most of the low-level details of OCaml
  compilation. All you have to do is provide a description of your
  project and Dune will do the rest.
+ .
+ This package contains the dune executable.
 
 Package: libdune-ocaml-dev
 Architecture: any
-Build-Profiles: <!pkg.ocaml-dune.nocsexp>
+Build-Profiles: <!pkg.ocaml-dune.bootstrap>
 Depends:
  ${ocaml:Depends},
  ${shlibs:Depends},
@@ -52,5 +53,5 @@ Description: composable build system for OCaml projects (libraries)
  compilation. All you have to do is provide a description of your
  project and Dune will do the rest.
  .
- This package contains the libraries dune-private-libs and
- dune-configurator.
+ This package contains libraries provided by the ocaml-dune source
+ package.

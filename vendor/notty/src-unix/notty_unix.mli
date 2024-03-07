@@ -5,7 +5,7 @@
 
     This is an IO module for {!Notty}.
 
-    {e %%VERSION%% — {{:%%PKG_HOMEPAGE%% }homepage}} *)
+    {e 3.14.0 — {{:https://github.com/ocaml/dune }homepage}} *)
 
 open Notty
 

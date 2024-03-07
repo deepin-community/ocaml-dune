@@ -14,7 +14,7 @@
     Consult the {{!basics}basics}, {{!examples}examples} and
     {{!limitations}limitations}.
 
-    {e %%VERSION%% — {{:%%PKG_HOMEPAGE%% }homepage}} *)
+    {e 3.14.0 — {{:https://github.com/ocaml/dune }homepage}} *)
 
 (** {1 Interface} *)
 

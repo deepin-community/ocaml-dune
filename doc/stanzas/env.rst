@@ -32,7 +32,13 @@ Fields supported in ``<settings>`` are:
   variables to the environment where the build commands are executed and are
   used by ``dune exec``.
 
-- ``(menhir_flags <flags>))`` specifies flags for Menhir stanzas.
+- ``(menhir_flags <flags>))`` specifies flags for Menhir stanzas. This flag was
+  replaced by the ``(menhir)`` field (see below) starting in version 3.0 of the
+  Menhir extension.
+
+- ``(menhir (flags <flags) (explain <blang expression>))`` specifies the Menhir
+  settings. See `menhir`_ for more details. This field was introduced in version
+  3.0 of the Menhir extension.
 
 - ``(js_of_ocaml (flags <flags>)(build_runtime <flags>)(link_flags <flags>))``
   specifies ``js_of_ocaml`` flags. See `jsoo-field`_ for more details.
@@ -62,7 +68,7 @@ Fields supported in ``<settings>`` are:
 - ``(odoc <fields>)`` allows passing options to ``odoc``. See
   :ref:`odoc-options` for more details.
 
-- ``(coq (flags <flags>))`` allows passing options to Coq. See :ref:`coq-theory`
+- ``(coq <coq_fields>)`` allow passing options to Coq. See :ref:`coq-env`
   for more details.
 
 - ``(formatting <settings>)`` allows the user to set auto-formatting in the

@@ -4,6 +4,13 @@
 Coq
 ***
 
+.. TODO(diataxis)
+
+   This looks like there are several components in there:
+
+   - reference info for stanzas and variables
+   - tutorials (the examples part)
+
 .. contents:: Table of Contents
     :depth: 3
 
@@ -109,7 +116,7 @@ The semantics of the fields are:
 
 - ``<coqdoc_flags>`` are extra user-configurable flags passed to ``coqdoc``. The
   default value for ``:standard`` is ``--toc``. The ``--html`` or ``--latex``
-  flags are passed separately depending on which mode is targed. See the section
+  flags are passed separately depending on which mode is target. See the section
   on :ref:`documentation using coqdoc<coqdoc>` for more information.
 
 - ``<stdlib_included>`` can either be ``yes`` or ``no``, currently defaulting to
@@ -417,7 +424,7 @@ Let us start with a simple project. First, make sure we have a
 
 .. code:: dune
 
-  (lang dune 3.9)
+  (lang dune 3.14)
   (using coq 0.8)
 
 Next we need a :ref:`dune<dune-files>` file with a :ref:`coq-theory` stanza:
@@ -647,7 +654,7 @@ otherwise Coq will not be able to find it.
 
 .. code:: dune
 
-  (lang dune 3.9)
+  (lang dune 3.14)
   (using coq 0.8)
 
   (package
@@ -736,7 +743,7 @@ typically used by editors such as CoqIDE or Proof General to interact with Coq.
 
 The following command:
 
-.. code:: bash
+.. code:: console
 
    $ dune coq top <file> -- <args>
 
@@ -788,3 +795,19 @@ configuration. These are:
 
 See :doc:`concepts/variables` for more information on variables supported by
 Dune.
+
+
+.. _coq-env:
+
+Coq Environment Fields
+----------------------
+
+The :ref:`dune-env` stanza has a ``(coq <coq_fields>)`` field with the following
+values for ``<coq_fields>``:
+
+- ``(flags <flags>)``: The default flags passed to ``coqc``. The default value
+  is ``-q``. Values set here become the ``:standard`` value in the
+  ``(coq.theory (flags <flags>))`` field. 
+- ``(coqdoc_flags <flags>)``: The default flags passed to ``coqdoc``. The default
+  value is ``--toc``. Values set here become the ``:standard`` value in the
+  ``(coq.theory (coqdoc_flags <flags>))`` field.

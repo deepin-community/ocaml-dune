@@ -52,7 +52,7 @@ For example, if your opam file looks like:
 
    opam-version: 2.0
    authors: ["Anil Madhavapeddy" "Rudi Grinberg"]
-   maintainers: ["team@mirage.org"]
+   maintainer: ["team@mirage.org"]
    name: "cohttp-async"
    synopsis: "HTTP client and server for the Async library"
    description: "A _really_ long description"
@@ -126,6 +126,7 @@ Now that you have declared package metadata in ``dune-project``, you can add
 ``(generate_opam_files)`` in ``(dune-project)``.
 
 From now on, commands like ``dune build`` and ``dune runtest`` are going to regenerate the contents of opam files from the metadata in ``(package)`` stanzas.
+If you only want to generate the opam file, run ``dune build <project_name>.opam``.
 
 Run ``dune build`` once and observe that the opam files have been created or
 updated. Make sure to add these changes to your version control system.

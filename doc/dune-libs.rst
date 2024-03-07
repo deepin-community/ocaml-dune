@@ -2,6 +2,8 @@
 Dune Libraries
 **************
 
+.. TODO(diataxis) Move into :doc:`reference/dune-libs`
+
 .. _configurator:
 
 Configurator
@@ -150,9 +152,9 @@ file, the version is obtained by querying the version control
 system. For instance, the following Git command is used in Git
 repositories:
 
-.. code:: bash
+.. code:: console
 
-          git describe --always --dirty --abbrev=7
+   $ git describe --always --dirty --abbrev=7
 
 which produces a human readable version string of the form
 ``<version>-<commits-since-version>-<hash>[-dirty]``.
@@ -178,5 +180,5 @@ your own risk.*
 
 ``Dune-action-plugin`` provides a monadic interface to express program
 dependencies directly inside the source code. Programs using this feature
-should be declared using :dune:ref:`action-dynamic-run` construction instead of
-usual :dune:ref:`action-run`.
+should be declared using :doc:`/reference/actions/dynamic-run` instead of usual
+:doc:`/reference/actions/run`.

@@ -15,7 +15,16 @@ module Toggle : sig
     [ `Enabled
     | `Disabled
     ]
+
+  val all : (string * t) list
+  val of_string : string -> (t, string) result
+  val to_string : t -> string
+  val to_dyn : t -> Dyn.t
 end
+
+(** [make ~name ~of_string ~default] registers a config value called [name],
+    parsed using [of_string], defaulting to [default]. *)
+val make : name:string -> of_string:(string -> ('a, string) result) -> default:'a -> 'a t
 
 (** [get t] return the value of the configuration for [t] *)
 val get : 'a t -> 'a
@@ -30,13 +39,6 @@ val cutoffs_that_reduce_concurrency_in_watch_mode : Toggle.t t
 (** whether dune should optimize file copying on Linux/MacOS *)
 val copy_file : [ `Portable | `Best ] t
 
-(** Before any configuration value is accessed, this function must be called
-    with all the configuration values from the relevant config file
-    ([dune-workspace], or [dune-config]).
-
-    Note that environment variables take precedence over the values passed here
-    for easy overriding. *)
-
 (** Execute some actions in background threads. See [Action_exec] for the
     concrete list of actions *)
 val background_actions : Toggle.t t
@@ -50,6 +52,16 @@ val background_sandboxes : Toggle.t t
 (** Run file operations when executing rules in background threads *)
 val background_file_system_operations_in_rule_execution : Toggle.t t
 
+(** Whether to use the threaded console. *)
 val threaded_console : Toggle.t t
 
+(** The number of frames per second for the threaded console. *)
+val threaded_console_frames_per_second : [ `Default | `Custom of int ] t
+
+(** Before any configuration value is accessed, this function must be called
+    with all the configuration values from the relevant config file
+    ([dune-workspace], or [dune-config]).
+
+    Note that environment variables take precedence over the values passed here
+    for easy overriding. *)
 val init : (Loc.t * string) String.Map.t -> unit

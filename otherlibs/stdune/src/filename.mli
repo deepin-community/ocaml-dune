@@ -14,7 +14,6 @@ module Extension : sig
 end
 
 val split_extension : t -> string * Extension.t
-
 val split_extension_after_dot : t -> string * string
 
 type program_name_kind =
@@ -23,10 +22,9 @@ type program_name_kind =
   | Absolute
 
 val analyze_program_name : t -> program_name_kind
-
 val equal : t -> t -> bool
-
 val compare : t -> t -> Ordering.t
+val chop_extension : [ `Use_remove_extension ]
 
 module Set = String.Set
 module Map = String.Map

@@ -2,6 +2,13 @@
 Stanza Reference
 ****************
 
+.. TODO(diataxis)
+
+   Recycle this content into:
+
+   - :doc:`reference/stanzas`
+   - :doc:`reference/files`
+
 .. _dune-project:
 
 dune-project
@@ -14,7 +21,7 @@ contents of all configuration files read by Dune and looks like:
 
 .. code:: dune
 
-   (lang dune 3.9)
+   (lang dune 3.14)
 
 Additionally, they can contains the following stanzas.
 
@@ -583,7 +590,7 @@ use_standard_c_and_cxx_flags
 
    .. versionadded:: 2.8
 
-   Control how flags coming grom ``ocamlc -config`` are passed to the C
+   Control how flags coming from ``ocamlc -config`` are passed to the C
    compiler command line.
 
    Historically, they have been systematically prepended without a way to
@@ -651,18 +658,18 @@ wrapped_executables
 
    .. versionadded:: 1.11
 
-      Control wrapping of modules in executables.
+   Control wrapping of modules in executables.
 
-      Executables are made of compilation units whose names may collide with
-      libraries' compilation units. To avoid this possibility, Dune prefixes
-      these compilation unit names with ``Dune__exe__``. This is entirely
-      transparent to users except when such executables are debugged. In which
-      case, the mangled names will be visible in the debugger.
+   Executables are made of compilation units whose names may collide with
+   libraries' compilation units. To avoid this possibility, Dune prefixes
+   these compilation unit names with ``Dune__exe__``. This is entirely
+   transparent to users except when such executables are debugged. In which
+   case, the mangled names will be visible in the debugger.
 
-      - with ``(wrapped_executables false)``, the original names are used.
-      - with ``(wrapped_executables true)``, the names are mangled.
+   - with ``(wrapped_executables false)``, the original names are used.
+   - with ``(wrapped_executables true)``, the names are mangled.
 
-      Starting in language version 2.0, the default value is ``true``.
+   Starting in language version 2.0, the default value is ``true``.
 
 .. _map-workspace-root:
 
@@ -688,6 +695,22 @@ map_workspace_root
         Initial version with the mapping always enabled.
    .. versionchanged:: 3.7
         Add a way to disable the mapping.
+
+.. _warnings:
+
+warnings
+--------
+
+.. dune:stanza:: warnings
+
+   .. versionadded:: 3.11
+
+   Configure Dune warnings for the project.
+
+   .. dune:field:: <name>
+      :param: <enabled | disabled>
+
+      Enable or disable the warning <name> for the current project.
 
 .. _dune-files:
 
@@ -719,6 +742,7 @@ The following sections describe the available stanzas and their meanings.
 .. include:: stanzas/cinaps.rst
 .. include:: stanzas/copy_files.rst
 .. include:: stanzas/coq_theory.rst
+.. include:: stanzas/cram.rst
 .. include:: stanzas/data_only_dirs.rst
 .. include:: stanzas/deprecated_library_name.rst
 .. include:: stanzas/dirs.rst
@@ -744,6 +768,7 @@ The following sections describe the available stanzas and their meanings.
 .. include:: stanzas/test.rst
 .. include:: stanzas/toplevel.rst
 .. include:: stanzas/vendored_dirs.rst
+.. include:: stanzas/dynamic_include.rst
 
 .. _dune-workspace:
 
@@ -760,7 +785,7 @@ You can point Dune to an explicit ``dune-workspace`` file with the
 support, so developers can test that the code builds with all OCaml versions by
 simply running:
 
-.. code:: bash
+.. code:: console
 
     $ dune build --workspace dune-workspace.dev @all @runtest
 
@@ -769,7 +794,7 @@ The ``dune-workspace`` file uses the S-expression syntax. This is what a typical
 
 .. code:: dune
 
-    (lang dune 3.9)
+    (lang dune 3.14)
     (context (opam (switch 4.07.1)))
     (context (opam (switch 4.08.1)))
     (context (opam (switch 4.11.1)))
@@ -1070,7 +1095,7 @@ Specifies how Dune handles the terminal when a rebuild is triggered in watch mod
 
 where ``<setting>`` is one of:
 
-- ``preserve`` does not clear the terminal screen beteween rebuilds.
+- ``preserve`` does not clear the terminal screen between rebuilds.
 
 - ``clear-on-rebuild`` clears the terminal screen between rebuilds.
 

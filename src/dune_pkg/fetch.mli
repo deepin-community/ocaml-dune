@@ -1,4 +1,4 @@
-open Stdune
+open Import
 
 type failure =
   | Checksum_mismatch of Checksum.t
@@ -12,8 +12,15 @@ type failure =
       pass the actually computed checksum.
     @raise Unavailable
       When the file can't be retrieved, e.g. not available at the location. *)
-val fetch :
-     checksum:Checksum.t option
+val fetch
+  :  unpack:bool
+  -> checksum:Checksum.t option
   -> target:Path.t
   -> OpamUrl.t
+  -> (unit, failure) result Fiber.t
+
+val fetch_git
+  :  Rev_store.t
+  -> target:Path.t
+  -> Opam_repo.Source.t
   -> (unit, failure) result Fiber.t

@@ -8,14 +8,13 @@
 open Import
 
 (** A Coq Path is a non-dune source of Coq theories, these can come from Coq's
-    stdlib and user-contrib location, and [COQPATH] enviroment variable. *)
+    stdlib and user-contrib location, and [COQPATH] environment variable. *)
 
 (** This module is similar to [Dir_contents] but for globally installed libs *)
 
 type t
 
 val name : t -> Coq_lib_name.t
-
 val path : t -> Path.t
 
 (** List of .vo files in a path *)

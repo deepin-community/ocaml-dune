@@ -7,6 +7,10 @@ module OS : sig
     | Darwin
     | Linux
     | Windows
+    | FreeBSD
+    | NetBSD
+    | OpenBSD
+    | Haiku
     | Other
 
   (** [value] is the current os we're running on. *)

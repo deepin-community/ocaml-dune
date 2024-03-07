@@ -1,10 +1,10 @@
 Packages can export environment variables
 
-  $ mkdir dune.lock
-  $ cat >dune.lock/lock.dune <<EOF
-  > (lang package 0.1)
-  > EOF
+  $ . ./helpers.sh
+
+  $ make_lockdir
   $ cat >dune.lock/test.pkg <<EOF
+  > (version 0.0.1)
   > (exported_env
   >  (= FOO bar)
   >  (= BAR xxx)
@@ -13,7 +13,7 @@ Packages can export environment variables
   > EOF
 
   $ cat >dune.lock/usetest.pkg <<'EOF'
-  > (deps test)
+  > (depends test)
   > (version 1.2.3)
   > (build
   >  (progn
@@ -25,7 +25,7 @@ Packages can export environment variables
   >   (run mkdir -p %{prefix})))
   > EOF
 
-  $ dune build .pkg/usetest/target/
+  $ build_pkg usetest
   FOO=bar
   BAR=zzz:yyy:xxx
   OPAM_PACKAGE_NAME=usetest
